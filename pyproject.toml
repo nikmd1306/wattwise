@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "wattwise"
+version = "0.1.0"
+description = "A service for calculating and managing utility bills."
+authors = ["Nikita Matsko <nikmd1306@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+aerich = "^0.9.0"
+pydantic = "^2.11.5"
+apscheduler = "^3.11.0"
+jinja2 = "^3.1.6"
+weasyprint = "^65.1"
+xlsxwriter = "^3.2.3"
+
+[tool.poetry.dependencies.tortoise-orm]
+extras = ["asyncpg"]
+version = "^0.25.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.0"
+pytest-asyncio = "^1.0.0"
+ruff = "^0.11.13"
+mypy = "^1.16.0"
+tomlkit = "^0.13.3"
+
+[tool.aerich]
+tortoise_orm = "app.core.db.TORTOISE_ORM"
+location = "app/migrations"
+src_folder = "./."
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
