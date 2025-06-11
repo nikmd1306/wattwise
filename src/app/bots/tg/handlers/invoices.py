@@ -54,6 +54,13 @@ async def handle_period_for_invoice(
 
     export_service = ExportService()
     for tenant in tenants:
+        # Check completeness first
+        issues = await billing_service.completeness_check(tenant.id, period)
+        if issues:
+            msg = "\n".join(issues)
+            await message.answer(f"⚠️ <b>{tenant.name}</b> — данные не полны:\n{msg}")
+            continue
+
         try:
             invoice, details = await billing_service.generate_invoice(tenant.id, period)
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:

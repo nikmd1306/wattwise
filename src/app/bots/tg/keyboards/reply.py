@@ -26,5 +26,6 @@ def get_admin_panel() -> ReplyKeyboardMarkup:
     builder.row(
         KeyboardButton(text="📈 Создать тариф"),
     )
+    builder.row(KeyboardButton(text="📟 Счётчики"))
     builder.row(KeyboardButton(text="⬅️ Назад в главное меню"))
     return builder.as_markup(resize_keyboard=True)

@@ -3,7 +3,7 @@ PY?=python
 .PHONY: install test lint format dev
 
 install:
-	poetry install --no-root
+	poetry install
 
 aerich:
 	poetry run aerich upgrade
@@ -19,4 +19,4 @@ format:
 	poetry run ruff format .
 
 dev:
-	poetry run uvicorn app.bots.tg.bot:main --reload 
+	PYTHONPATH=src poetry run python -m app.bots.tg.bot

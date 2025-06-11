@@ -39,3 +39,17 @@ def calculate_cost(consumption: Decimal, rate: Decimal) -> Decimal:
         The calculated cost.
     """
     return consumption * rate
+
+
+def recalculate_consumption_after_subtraction(
+    parent_consumption: Decimal, sub_consumption: Decimal
+) -> Decimal:
+    """Recalculate remaining consumption of parent meter after subtracting a sub-meter.
+
+    Raises ValueError if result would be negative."""
+    new_value = parent_consumption - sub_consumption
+    if new_value < Decimal("0"):
+        raise ValueError(
+            "Sub-meter consumption exceeds parent meter consumption after subtraction."
+        )
+    return new_value

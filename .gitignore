@@ -136,5 +136,6 @@ cython_debug/
 .venv 
 
 # Project specific
-PROJECT_DESCRIPTION.MD
-TASK.MD
+PROJECT_DESCRIPTION.md
+TASK.md
+PLAN.md

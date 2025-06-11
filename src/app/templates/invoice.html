@@ -131,23 +131,22 @@
                 </tr>
                 {% endfor %}
 
-                <!-- Render subtractions -->
-                {% for meter_id, detail in details.items() %} {% if
-                detail.meter.subtract_from %} {% set parent_meter_id_str =
-                detail.meter.subtract_from.id | string %} {% set parent_detail =
-                details[parent_meter_id_str] %} {% set subtraction_cost =
-                detail.consumption * parent_detail.tariff.rate %}
+                <!-- Totals per tariff type -->
+                {% if totals_by_rate_type %}
                 <tr>
-                    <td colspan="3" style="padding-left: 20px">
-                        <em>↳ Вычет из «{{ parent_detail.meter.name }}» ({{
-                            "%.2f"|format(detail.consumption) }} кВт·ч × {{
-                            "%.2f"|format(parent_detail.tariff.rate) }} ₽)</em>
+                    <td colspan="4" style="border: none; height: 20px"></td>
+                </tr>
+                {% for rt, rt_total in totals_by_rate_type.items() %}
+                <tr>
+                    <td colspan="3" style="text-align: right; font-weight: bold">
+                        Итого по тарифу «{{ rt }}»
                     </td>
-                    <td style="text-align: right">
-                        <em>-{{ "%.2f"|format(subtraction_cost) }} ₽</em>
+                    <td style="text-align: right; font-weight: bold">
+                        {{ "%.2f"|format(rt_total) }} ₽
                     </td>
                 </tr>
-                {% endif %} {% endfor %}
+                {% endfor %}
+                {% endif %}
             </tbody>
         </table>
 

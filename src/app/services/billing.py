@@ -11,6 +11,9 @@ from uuid import UUID
 from dateutil.relativedelta import relativedelta
 
 from app.core import calculations
+from app.core.calculations import (
+    recalculate_consumption_after_subtraction as _recalc_after_sub,
+)
 from app.core.models import Invoice, Meter, Tariff
 from app.core.repositories.invoice import InvoiceRepository
 from app.core.repositories.reading import ReadingRepository
@@ -90,24 +93,47 @@ class BillingService:
         self, billing_results: dict[UUID, MeterBillingResult]
     ) -> Decimal:
         """Adjusts costs for meters that subtract from others."""
-        final_costs = {
-            result.meter.id: result.cost for result in billing_results.values()
-        }
+        final_costs: dict[UUID, Decimal] = {}
 
-        for result in billing_results.values():
-            if result.meter.subtract_from:
-                parent_meter_result = billing_results[result.meter.subtract_from.id]
-                parent_tariff = parent_meter_result.tariff
+        # Start with original results
+        for res in billing_results.values():
+            final_costs[res.meter.id] = res.cost
 
-                # The cost to subtract is the sub-meter's
-                # CONSUMPTION at the PARENT's rate.
-                subtraction_cost = calculations.calculate_cost(
-                    consumption=result.consumption,
-                    rate=parent_tariff.rate,
+        # Iterate over sub-meters and modify parent results
+        sub_meters = [r for r in billing_results.values() if r.meter.subtract_from]
+        for sub_result in sub_meters:
+            parent_meter = sub_result.meter.subtract_from
+            assert parent_meter is not None
+            parent_id = parent_meter.id
+            parent_result = billing_results[parent_id]
+
+            # Recalculate remaining consumption of parent meter
+            try:
+                new_parent_consumption = _recalc_after_sub(
+                    parent_result.consumption,
+                    sub_result.consumption,
                 )
-                final_costs[parent_meter_result.meter.id] -= subtraction_cost
+            except ValueError as e:
+                raise BillingError(str(e)) from e
 
-        # Provide a Decimal start value to keep the return type consistent
+            # Calculate the cost of the remaining consumption
+            parent_rate = parent_result.tariff.rate
+            new_parent_cost = calculations.calculate_cost(
+                consumption=new_parent_consumption, rate=parent_rate
+            )
+
+            # Update the final costs
+            deduction = parent_result.cost - new_parent_cost
+            final_costs[parent_id] -= deduction
+
+            # Update the billing_results for further use (PDF, API)
+            billing_results[parent_id] = MeterBillingResult(
+                meter=parent_result.meter,
+                tariff=parent_result.tariff,
+                consumption=Consumption(new_parent_consumption),
+                cost=new_parent_cost,
+            )
+
         return sum(final_costs.values(), Decimal("0"))
 
     async def _bill_meter(self, meter: Meter, period_date: date) -> MeterBillingResult:
@@ -145,3 +171,95 @@ class BillingService:
         return MeterBillingResult(
             meter=meter, tariff=tariff, consumption=Consumption(consumption), cost=cost
         )
+
+    async def add_adjustment(
+        self,
+        invoice_id: UUID,
+        amount: Decimal,
+        description: str,
+    ) -> None:
+        """Adds a manual adjustment to an invoice and updates its amount.
+
+        Args:
+            invoice_id: Target invoice ID.
+            amount: Positive or negative monetary value.
+            description: Short explanation shown to users.
+        """
+        # Lazy import to avoid circular deps
+        from app.core.repositories.adjustment import AdjustmentRepository
+
+        invoice = await self._invoice_repo.get(pk=invoice_id)
+        if not invoice:
+            raise BillingError(f"Invoice {invoice_id} not found.")
+
+        # Create the adjustment record
+        adj_repo = AdjustmentRepository()
+        await adj_repo.create(
+            invoice_id=invoice_id, amount=amount, description=description
+        )
+
+        # Update invoice total
+        invoice.amount += amount
+        await invoice.save()
+
+    async def list_adjustments(self, invoice_id: UUID):
+        """Returns all adjustments for a given invoice."""
+        invoice = await self._invoice_repo.get(pk=invoice_id)
+        if not invoice:
+            raise BillingError(f"Invoice {invoice_id} not found.")
+        await invoice.fetch_related("adjustments")
+        return list(invoice.adjustments)
+
+    @staticmethod
+    def aggregate_costs_by_rate_type(
+        billing_results: dict[UUID, "MeterBillingResult"],
+    ) -> dict[str, Decimal]:
+        """Sums costs grouped by ``tariff.rate_type``."""
+        totals: dict[str, Decimal] = {}
+        for res in billing_results.values():
+            key = res.tariff.rate_type or "default"
+            totals[key] = totals.get(key, Decimal("0")) + res.cost
+        return totals
+
+    async def completeness_check(self, tenant_id: UUID, period_date: date) -> list[str]:
+        """Returns human-readable list of missing data for given tenant/period.
+
+        Checks:
+        1. Есть ли показания за текущий период.
+        2. Есть ли показания за предыдущий период.
+        3. Активный тариф на дату period_date.
+        """
+
+        tenant = await self._tenant_repo.get(pk=tenant_id)
+        if not tenant:
+            return [f"Арендатор {tenant_id} не найден."]
+
+        await tenant.fetch_related("meters")
+
+        issues: list[str] = []
+        prev_period = period_date - relativedelta(months=1)
+
+        for meter in tenant.meters:
+            # Check readings
+            curr_reading = await self._reading_repo.get_for_period(
+                meter.id, period_date, period_date
+            )
+            if not curr_reading:
+                issues.append(
+                    f"Нет показания {period_date:%Y-%m} для счётчика «{meter.name}»."
+                )
+
+            prev_reading = await self._reading_repo.get_for_period(
+                meter.id, prev_period, prev_period
+            )
+            if not prev_reading:
+                issues.append(f"Нет показания {prev_period:%Y-%m} для «{meter.name}».")
+
+            # Check tariff
+            tariff = await self._tariff_repo.find_for_date(meter.id, period_date)
+            if not tariff:
+                issues.append(
+                    f"Нет активного тарифа на {period_date:%Y-%m} для «{meter.name}»."
+                )
+
+        return issues

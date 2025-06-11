@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 from uuid import UUID
+from collections import defaultdict
+from decimal import Decimal
 
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
@@ -44,11 +46,18 @@ class ExportService:
             str(key): value for key, value in billing_details.items()
         }
 
+        # Aggregate totals per tariff type
+        totals_by_rate_type: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+        for detail in billing_details.values():
+            key = detail.tariff.rate_type or "default"
+            totals_by_rate_type[key] += detail.cost
+
         rendered_html = template.render(
             invoice=invoice,
             tenant=invoice.tenant,
             period=invoice.period.strftime("%B %Y"),
             details=details_with_str_keys,
+            totals_by_rate_type=totals_by_rate_type,
         )
 
         output_path = Path(output_path)

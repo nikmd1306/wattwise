@@ -3,23 +3,25 @@
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
+from aiogram.fsm.context import FSMContext
 
 from app.bots.tg.keyboards.reply import get_admin_panel, get_main_menu
 from app.config import settings
+from app.bots.tg.states import Onboarding
 
 router = Router(name=__name__)
 
 
 @router.message(CommandStart())
-async def handle_start(message: Message):
+async def handle_start(message: Message, state: FSMContext):
     """Handler for the /start command."""
     if not message.from_user:
         return
-    is_admin = message.from_user.id in settings.ADMIN_IDS
-    await message.answer(
-        "Добро пожаловать в WattWise Bot!",
-        reply_markup=get_main_menu(is_admin),
-    )
+    # Launch onboarding carousel
+    await state.set_state(Onboarding.page1)
+    from app.bots.tg.handlers.onboarding import _send_page  # noqa: WPS433
+
+    await _send_page(message, 1)
 
 
 @router.message(Command("help"))
@@ -42,5 +44,7 @@ async def handle_back_to_main_menu(message: Message):
     """Returns the user to the main menu."""
     if not message.from_user:
         return
-    is_admin = message.from_user.id in settings.ADMIN_IDS
-    await message.answer("Главное меню:", reply_markup=get_main_menu(is_admin))
+    await message.answer(
+        "Главное меню:",
+        reply_markup=get_main_menu(message.from_user.id in settings.ADMIN_IDS),
+    )

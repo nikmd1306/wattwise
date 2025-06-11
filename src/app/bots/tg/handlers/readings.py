@@ -80,7 +80,15 @@ async def handle_meter_selection(
     if not isinstance(query.message, Message):
         return
 
-    await state.update_data(meter_id=callback_data.id)
+    # Fetch selected meter with parent info
+    meter_repo = MeterRepository()
+    meter = await meter_repo.model.get(id=callback_data.id)
+
+    await state.update_data(
+        meter_id=str(meter.id),
+        meter_name=meter.name,
+        is_sub=bool(meter.subtract_from),
+    )
 
     # Check for previous month's reading to decide the flow
     repo = ReadingRepository()
@@ -92,8 +100,23 @@ async def handle_meter_selection(
 
     if previous_reading:
         # Normal flow: previous reading exists
+        await state.update_data(prev_value=str(previous_reading.value))
         await state.set_state(ReadingEntry.enter_value)
-        await query.message.edit_text("Пожалуйста, введите текущее показание счетчика:")
+
+        if meter.subtract_from:
+            warn_sub = (
+                "\n⚠️ Этот счётчик является под-счётчиком. "
+                "Расход родительского будет скорректирован."
+            )
+        else:
+            warn_sub = ""
+
+        await query.message.edit_text(
+            "Показание за <b>{:%B %Y}</b>: <b>{}</b>{}"
+            "\n\nВведите текущее показание:".format(
+                prev_period, previous_reading.value, warn_sub
+            )
+        )
     else:
         # First-time entry flow: no previous reading
         await state.set_state(ReadingEntry.enter_previous_value)
@@ -137,19 +160,23 @@ async def handle_reading_value(message: Message, state: FSMContext):
     await state.update_data(current_value=value)
     data = await state.get_data()
 
-    # Prepare confirmation text
-    text = f"Вы ввели: {data['current_value']}. Подтверждаете?"
-    if "previous_value" in data:
-        current_period = date.today().replace(day=1)
-        prev_period = current_period - relativedelta(months=1)
+    # Reconstruct periods for confirmation block
+    current_period = date.today().replace(day=1)
+    prev_period = current_period - relativedelta(months=1)
+
+    if "prev_value" in data or "previous_value" in data:
+        prev_val = Decimal(str(data.get("previous_value", data.get("prev_value"))))
+        diff = value - prev_val
+
         text = (
             "<b>Проверьте введенные данные:</b>\n"
-            f"Показание за {prev_period:%B %Y}: "
-            f"<b>{data['previous_value']}</b>\n"
-            f"Показание за {current_period:%B %Y}: "
-            f"<b>{data['current_value']}</b>\n\n"
+            f"Показание за {prev_period:%B %Y}: <b>{prev_val}</b>\n"
+            f"Показание за {current_period:%B %Y}: <b>{value}</b>\n"
+            f"Расход за месяц: <b>{diff}</b> кВт·ч\n\n"
             "Все верно?"
         )
+    else:
+        text = f"Вы ввели: {value}. Подтверждаете?"
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm"))

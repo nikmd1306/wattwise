@@ -81,6 +81,7 @@ class Tariff(BaseModel):
     """Represents a tariff with a specific rate for a period."""
 
     rate = fields.DecimalField(max_digits=10, decimal_places=4)
+    rate_type = fields.CharField(max_length=50, default="")
     period_start = fields.DateField()
     period_end = fields.DateField(null=True)
     meter: fields.ForeignKeyRelation[Meter] = fields.ForeignKeyField(
@@ -90,7 +91,7 @@ class Tariff(BaseModel):
     def __str__(self) -> str:
         end_period = self.period_end or "now"
         return (
-            f"Tariff for {self.meter}: {self.rate} "
+            f"Tariff for {self.meter}: {self.rate} ({self.rate_type}) "
             f"({self.period_start} to {end_period})"
         )
 

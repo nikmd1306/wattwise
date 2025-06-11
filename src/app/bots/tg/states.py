@@ -22,6 +22,8 @@ class TariffManagement(StatesGroup):
 
     select_tenant = State()
     select_meter = State()
+    manage_existing = State()
+    enter_rate_name = State()
     enter_rate = State()
     enter_start_date = State()
     confirm_creation = State()
@@ -32,9 +34,25 @@ class MeterManagement(StatesGroup):
 
     select_tenant = State()
     enter_name = State()
+    ask_is_submeter = State()
+    select_parent_meter = State()
 
 
 class InvoiceGeneration(StatesGroup):
     """States for invoice generation."""
+
+    enter_period = State()
+
+
+class Onboarding(StatesGroup):
+    """States for the onboarding carousel."""
+
+    page1 = State()
+    page2 = State()
+    page3 = State()
+
+
+class SummaryGeneration(StatesGroup):
+    """States for summary report generation."""
 
     enter_period = State()
