@@ -4,11 +4,17 @@ import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
 from tortoise import Tortoise
 
 from app.config import settings
 from app.core.db import TORTOISE_ORM
-from app.bots.tg.handlers import common, readings
+from app.bots.tg.handlers import common, readings, invoices
+from app.services.billing import BillingService
+from app.core.repositories.tenant import TenantRepository
+from app.core.repositories.reading import ReadingRepository
+from app.core.repositories.tariff import TariffRepository
+from app.core.repositories.invoice import InvoiceRepository
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +29,25 @@ async def main():
 
     await Tortoise.init(config=TORTOISE_ORM)
 
-    bot = Bot(token=settings.BOT_TOKEN, parse_mode="HTML")
+    bot = Bot(
+        token=settings.BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode="HTML"),
+    )
     dp = Dispatcher()
 
     # Register routers
     dp.include_router(common.router)
     dp.include_router(readings.router)
+    dp.include_router(invoices.router)
+
+    # Pass services to handlers
+    billing_service = BillingService(
+        tenant_repo=TenantRepository(),
+        reading_repo=ReadingRepository(),
+        tariff_repo=TariffRepository(),
+        invoice_repo=InvoiceRepository(),
+    )
+    dp["billing_service"] = billing_service
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)

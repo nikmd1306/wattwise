@@ -1,7 +1,7 @@
 """Common command handlers."""
 
 from aiogram import Router
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 
 router = Router(name=__name__)
@@ -18,7 +18,7 @@ async def handle_start(message: Message):
     )
 
 
-@router.message(commands=["help"])
+@router.message(Command("help"))
 async def handle_help(message: Message):
     """Handler for the /help command."""
     await message.answer(
