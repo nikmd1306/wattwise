@@ -49,13 +49,19 @@ class BillingService:
         self._tariff_repo = tariff_repo
         self._invoice_repo = invoice_repo
 
-    async def generate_invoice(self, tenant_id: UUID, period_date: date) -> Invoice:
+    async def generate_invoice(
+        self, tenant_id: UUID, period_date: date
+    ) -> tuple[Invoice, dict[UUID, MeterBillingResult]]:
         """
-        Generates a consolidated invoice for a given tenant and period.
+        Generates or updates a consolidated invoice for a given tenant and period.
 
         This method calculates consumption for all of the tenant's meters,
         handles subtractive meters, calculates the total cost, and creates
-        an invoice record in the database.
+        or updates an invoice record in the database.
+
+        Returns:
+            A tuple containing the Invoice object and a dictionary with detailed
+            billing results per meter, keyed by meter ID.
         """
         tenant = await self._tenant_repo.get(pk=tenant_id)
         if not tenant:
@@ -72,13 +78,13 @@ class BillingService:
         # Then, adjust for subtractive meters
         total_cost = self._adjust_for_subtraction(billing_results)
 
-        # Finally, create and save the invoice
-        invoice = await self._invoice_repo.create(
-            tenant=tenant,
+        # Finally, create or update the invoice
+        invoice, _ = await self._invoice_repo.update_or_create(
+            defaults={"amount": total_cost},
+            tenant_id=tenant.id,
             period=period_date.replace(day=1),
-            amount=total_cost,
         )
-        return invoice
+        return invoice, billing_results
 
     def _adjust_for_subtraction(
         self, billing_results: dict[UUID, MeterBillingResult]

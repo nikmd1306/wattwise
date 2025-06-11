@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import locale
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -21,6 +22,15 @@ logger = logging.getLogger(__name__)
 
 async def main():
     """Initializes and starts the bot."""
+    try:
+        locale.setlocale(locale.LC_TIME, "ru_RU.UTF-8")
+    except locale.Error:
+        logger.warning(
+            "Locale 'ru_RU.UTF-8' not found. Dates will be in English. "
+            "To fix, install the locale on your system (e.g., on Debian/Ubuntu: "
+            "'sudo apt-get install -y language-pack-ru' and 'sudo update-locale')."
+        )
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",

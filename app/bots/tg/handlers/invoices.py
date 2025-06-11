@@ -55,10 +55,10 @@ async def handle_period_for_invoice(
     export_service = ExportService()
     for tenant in tenants:
         try:
-            invoice = await billing_service.generate_invoice(tenant.id, period)
+            invoice, details = await billing_service.generate_invoice(tenant.id, period)
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
                 output_path = await export_service.generate_pdf_invoice(
-                    invoice, temp_file.name
+                    invoice, details, temp_file.name
                 )
                 await message.answer_document(
                     FSInputFile(output_path),

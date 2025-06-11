@@ -41,7 +41,7 @@ async def test_generate_invoice_simple_case(billing_service: BillingService):
     )
 
     # --- Act ---
-    invoice = await billing_service.generate_invoice(tenant.id, date(2024, 7, 1))
+    invoice, _ = await billing_service.generate_invoice(tenant.id, date(2024, 7, 1))
 
     # --- Assert ---
     assert invoice is not None
@@ -86,7 +86,7 @@ async def test_generate_invoice_with_subtraction(billing_service: BillingService
     expected_amount = Decimal("1050.00")
 
     # --- Act ---
-    invoice = await billing_service.generate_invoice(tenant.id, date(2024, 7, 1))
+    invoice, _ = await billing_service.generate_invoice(tenant.id, date(2024, 7, 1))
 
     # --- Assert ---
     assert invoice.amount == expected_amount

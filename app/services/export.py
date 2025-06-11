@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import UUID
 
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
 from app.core.models import Invoice
+from app.services.billing import MeterBillingResult
 
 
 class ExportService:
@@ -18,13 +20,17 @@ class ExportService:
         self._env = Environment(loader=FileSystemLoader(template_dir))
 
     async def generate_pdf_invoice(
-        self, invoice: Invoice, output_path: Path | str
+        self,
+        invoice: Invoice,
+        billing_details: dict[UUID, MeterBillingResult],
+        output_path: Path | str,
     ) -> Path:
         """
-        Generates a PDF invoice from an Invoice object.
+        Generates a PDF invoice from an Invoice object and detailed billing data.
 
         Args:
             invoice: The Invoice object containing the data.
+            billing_details: A dictionary with detailed calculation results per meter.
             output_path: The path where the PDF file will be saved.
 
         Returns:
@@ -33,10 +39,16 @@ class ExportService:
         await invoice.fetch_related("tenant")
         template = self._env.get_template("invoice.html")
 
+        # Convert UUID keys to strings for Jinja2 compatibility
+        details_with_str_keys = {
+            str(key): value for key, value in billing_details.items()
+        }
+
         rendered_html = template.render(
             invoice=invoice,
             tenant=invoice.tenant,
             period=invoice.period.strftime("%B %Y"),
+            details=details_with_str_keys,
         )
 
         output_path = Path(output_path)

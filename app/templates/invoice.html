@@ -1,1 +1,164 @@
- 
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Счет на оплату</title>
+    <style>
+        body {
+            font-family: DejaVu Sans, sans-serif;
+            /* Font that supports Cyrillic */
+            margin: 40px;
+            color: #333;
+        }
+
+        .invoice-box {
+            max-width: 800px;
+            margin: auto;
+            padding: 30px;
+            border: 1px solid #eee;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+            font-size: 16px;
+            line-height: 24px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1,
+        h2 {
+            color: #1a1a1a;
+            margin: 20px 0 10px;
+        }
+
+        .details {
+            margin-bottom: 40px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .details p {
+            margin: 0;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .items-table th,
+        .items-table td {
+            border-bottom: 1px solid #eee;
+            padding: 10px;
+        }
+
+        .items-table th {
+            background-color: #f9f9f9;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .total {
+            text-align: right;
+            margin-top: 50px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 0.8em;
+            color: #777;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="invoice-box">
+        <div class="header">
+            <h1>Счет на оплату</h1>
+        </div>
+        <div class="details">
+            <div class="details-grid">
+                <div>
+                    <p><strong>Кому:</strong> {{ tenant.name }}</p>
+                    <p><strong>Период:</strong> {{ period }}</p>
+                </div>
+                <div style="text-align: right">
+                    <p>
+                        <strong>Номер счета:</strong>
+                        {{ invoice.id | string | truncate(8, True, '') }}
+                    </p>
+                    <p>
+                        <strong>Дата выставления:</strong>
+                        {{ invoice.created_at.strftime('%d.%m.%Y') }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <h2>Детализация расчетов</h2>
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Описание</th>
+                    <th style="text-align: right">Расход</th>
+                    <th style="text-align: right">Тариф</th>
+                    <th style="text-align: right">Сумма</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Render each meter's own cost -->
+                {% for meter_id, detail in details.items() %}
+                <tr>
+                    <td>Счетчик «{{ detail.meter.name }}»</td>
+                    <td style="text-align: right">
+                        {{ "%.2f"|format(detail.consumption) }} кВт·ч
+                    </td>
+                    <td style="text-align: right">
+                        {{ "%.2f"|format(detail.tariff.rate) }} ₽
+                    </td>
+                    <td style="text-align: right">
+                        {{ "%.2f"|format(detail.cost) }} ₽
+                    </td>
+                </tr>
+                {% endfor %}
+
+                <!-- Render subtractions -->
+                {% for meter_id, detail in details.items() %} {% if
+                detail.meter.subtract_from %} {% set parent_meter_id_str =
+                detail.meter.subtract_from.id | string %} {% set parent_detail =
+                details[parent_meter_id_str] %} {% set subtraction_cost =
+                detail.consumption * parent_detail.tariff.rate %}
+                <tr>
+                    <td colspan="3" style="padding-left: 20px">
+                        <em>↳ Вычет из «{{ parent_detail.meter.name }}» ({{
+                            "%.2f"|format(detail.consumption) }} кВт·ч × {{
+                            "%.2f"|format(parent_detail.tariff.rate) }} ₽)</em>
+                    </td>
+                    <td style="text-align: right">
+                        <em>-{{ "%.2f"|format(subtraction_cost) }} ₽</em>
+                    </td>
+                </tr>
+                {% endif %} {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="total">
+            <p>Итого к оплате: {{ "%.2f"|format(invoice.amount) }} ₽</p>
+        </div>
+
+        <div class="footer">
+            <p>Спасибо за своевременную оплату!</p>
+        </div>
+    </div>
+</body>
+
+</html>
