@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A service for calculating and managing utility bills."
 authors = ["Nikita Matsko <nikmd1306@gmail.com>"]
 readme = "README.md"
-packages = [{include = "app"}]
+packages = [{include = "app", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -41,7 +41,10 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 pythonpath = [
-  "."
+  "src"
+]
+addopts = [
+  "--import-mode=importlib",
 ]
 
 [tool.mypy]

@@ -10,12 +10,13 @@ from tortoise import Tortoise
 
 from app.config import settings
 from app.core.db import TORTOISE_ORM
-from app.bots.tg.handlers import common, readings, invoices, admin
+from app.bots.tg.handlers import readings, invoices, admin
 from app.services.billing import BillingService
 from app.core.repositories.tenant import TenantRepository
 from app.core.repositories.reading import ReadingRepository
 from app.core.repositories.tariff import TariffRepository
 from app.core.repositories.invoice import InvoiceRepository
+from app.bots.tg.handlers import common
 
 logger = logging.getLogger(__name__)
 

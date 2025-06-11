@@ -27,4 +27,6 @@ jobs:
     - name: Lint with ruff
       run: poetry run ruff check .
     - name: Static analysis with mypy
-      run: poetry run mypy . --strict 
+      run: poetry run mypy . --strict
+    - name: Run tests
+      run: poetry run pytest -q --cov=app --cov-report=xml 
