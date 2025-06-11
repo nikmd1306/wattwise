@@ -45,12 +45,16 @@ class Meter(BaseModel):
     name = fields.CharField(max_length=255)  # e.g., "Office", "Warehouse"
     resource_type = fields.CharEnumField(ResourceType, default=ResourceType.ELECTRICITY)
     tenant = fields.ForeignKeyField("models.Tenant", related_name="meters")
-    subtract_from = fields.ForeignKeyField(
-        "models.Meter", related_name="sub_meters", null=True, on_delete=fields.SET_NULL
+    subtract_from: fields.ForeignKeyNullableRelation["Meter"] = fields.ForeignKeyField(
+        "models.Meter",
+        related_name="sub_meters",
+        null=True,
+        on_delete=fields.SET_NULL,
     )
 
     readings: fields.ReverseRelation[Reading]
     tariffs: fields.ReverseRelation[Tariff]
+    sub_meters: fields.ReverseRelation["Meter"]
 
     def __str__(self) -> str:
         return f"{self.tenant} - {self.name} " f"({self.resource_type.value})"
@@ -111,6 +115,6 @@ class Adjustment(BaseModel):
 
     def __str__(self) -> str:
         return (
-            f"Adjustment on invoice {self.invoice_id}: "
+            f"Adjustment on invoice {self.invoice.id}: "
             f"{self.amount} ({self.description})"
         )
