@@ -1864,6 +1864,17 @@ asyncpg = ["asyncpg"]
 psycopg = ["psycopg[binary,pool] (>=3.0.12,<4.0.0)"]
 
 [[package]]
+name = "types-python-dateutil"
+version = "2.9.0.20250516"
+description = "Typing stubs for python-dateutil"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "types_python_dateutil-2.9.0.20250516-py3-none-any.whl", hash = "sha256:2b2b3f57f9c6a61fba26a9c0ffb9ea5681c9b83e69cd897c6b5f668d9c0cab93"},
+    {file = "types_python_dateutil-2.9.0.20250516.tar.gz", hash = "sha256:13e80d6c9c47df23ad773d54b2826bd52dbbb41be87c3f339381c1700ad21ee5"},
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.14.0"
 description = "Backported and Experimental Type Hints for Python 3.9+"
@@ -2185,4 +2196,4 @@ test = ["pytest"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "34124e27682ab3c2503e2b0e1024c9aa952c9c97217899b757df21abb4f20329"
+content-hash = "4b6dea0bb634273c1dbbb3309459ba38215303f7a059dbd498a568f2e344629a"

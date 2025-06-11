@@ -31,7 +31,6 @@ class Tenant(BaseModel):
     """Represents a tenant who rents a property."""
 
     name = fields.CharField(max_length=255, unique=True)
-
     meters: fields.ReverseRelation[Meter]
     invoices: fields.ReverseRelation[Invoice]
 
@@ -44,7 +43,9 @@ class Meter(BaseModel):
 
     name = fields.CharField(max_length=255)  # e.g., "Office", "Warehouse"
     resource_type = fields.CharEnumField(ResourceType, default=ResourceType.ELECTRICITY)
-    tenant = fields.ForeignKeyField("models.Tenant", related_name="meters")
+    tenant: fields.ForeignKeyRelation[Tenant] = fields.ForeignKeyField(
+        "models.Tenant", related_name="meters"
+    )
     subtract_from: fields.ForeignKeyNullableRelation["Meter"] = fields.ForeignKeyField(
         "models.Meter",
         related_name="sub_meters",
@@ -65,7 +66,9 @@ class Reading(BaseModel):
 
     value = fields.DecimalField(max_digits=10, decimal_places=2)
     period = fields.DateField()  # e.g., 2024-07-01 for July 2024
-    meter = fields.ForeignKeyField("models.Meter", related_name="readings")
+    meter: fields.ForeignKeyRelation[Meter] = fields.ForeignKeyField(
+        "models.Meter", related_name="readings"
+    )
 
     class Meta:
         unique_together = ("meter", "period")
@@ -80,7 +83,9 @@ class Tariff(BaseModel):
     rate = fields.DecimalField(max_digits=10, decimal_places=4)
     period_start = fields.DateField()
     period_end = fields.DateField(null=True)
-    meter = fields.ForeignKeyField("models.Meter", related_name="tariffs")
+    meter: fields.ForeignKeyRelation[Meter] = fields.ForeignKeyField(
+        "models.Meter", related_name="tariffs"
+    )
 
     def __str__(self) -> str:
         end_period = self.period_end or "now"
@@ -95,7 +100,9 @@ class Invoice(BaseModel):
 
     amount = fields.DecimalField(max_digits=10, decimal_places=2)
     period = fields.DateField()
-    tenant = fields.ForeignKeyField("models.Tenant", related_name="invoices")
+    tenant: fields.ForeignKeyRelation[Tenant] = fields.ForeignKeyField(
+        "models.Tenant", related_name="invoices"
+    )
 
     adjustments: fields.ReverseRelation[Adjustment]
 
@@ -111,7 +118,9 @@ class Adjustment(BaseModel):
 
     amount = fields.DecimalField(max_digits=10, decimal_places=2)
     description = fields.CharField(max_length=255)
-    invoice = fields.ForeignKeyField("models.Invoice", related_name="adjustments")
+    invoice: fields.ForeignKeyRelation[Invoice] = fields.ForeignKeyField(
+        "models.Invoice", related_name="adjustments"
+    )
 
     def __str__(self) -> str:
         return (

@@ -28,6 +28,7 @@ mypy = "^1.16.0"
 tomlkit = "^0.13.3"
 python-dateutil = "^2.9.0.post0"
 pydantic-settings = "^2.9.1"
+types-python-dateutil = "^2.9.0.20250516"
 
 [tool.aerich]
 tortoise_orm = "app.core.db.TORTOISE_ORM"
@@ -46,3 +47,19 @@ pythonpath = [
 [tool.mypy]
 python_version = "3.12"
 packages = ["app"]
+plugins = [
+  "pydantic.mypy"
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "weasyprint",
+    "apscheduler.*",
+]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true

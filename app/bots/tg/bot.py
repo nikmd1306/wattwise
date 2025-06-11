@@ -9,7 +9,7 @@ from tortoise import Tortoise
 
 from app.config import settings
 from app.core.db import TORTOISE_ORM
-from app.bots.tg.handlers import common, readings, invoices
+from app.bots.tg.handlers import common, readings, invoices, admin
 from app.services.billing import BillingService
 from app.core.repositories.tenant import TenantRepository
 from app.core.repositories.reading import ReadingRepository
@@ -39,6 +39,7 @@ async def main():
     dp.include_router(common.router)
     dp.include_router(readings.router)
     dp.include_router(invoices.router)
+    dp.include_router(admin.router)
 
     # Pass services to handlers
     billing_service = BillingService(
