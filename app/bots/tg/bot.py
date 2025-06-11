@@ -8,7 +8,7 @@ from tortoise import Tortoise
 
 from app.config import settings
 from app.core.db import TORTOISE_ORM
-from app.bots.tg.handlers import common
+from app.bots.tg.handlers import common, readings
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ async def main():
 
     # Register routers
     dp.include_router(common.router)
+    dp.include_router(readings.router)
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)

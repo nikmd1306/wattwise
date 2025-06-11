@@ -27,6 +27,7 @@ ruff = "^0.11.13"
 mypy = "^1.16.0"
 tomlkit = "^0.13.3"
 python-dateutil = "^2.9.0.post0"
+pydantic-settings = "^2.9.1"
 
 [tool.aerich]
 tortoise_orm = "app.core.db.TORTOISE_ORM"
@@ -41,3 +42,7 @@ build-backend = "poetry.core.masonry.api"
 pythonpath = [
   "."
 ]
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["app"]
