@@ -26,6 +26,12 @@ class BaseRepository(Generic[ModelType]):
         """Get or create a model instance."""
         return await self.model.get_or_create(defaults=defaults, **kwargs)
 
+    async def update_or_create(
+        self, defaults: dict | None = None, **kwargs
+    ) -> tuple[ModelType, bool]:
+        """Update or create a model instance."""
+        return await self.model.update_or_create(defaults=defaults, **kwargs)
+
     async def all(self) -> list[ModelType]:
         """Get all model instances."""
         return await self.model.all()

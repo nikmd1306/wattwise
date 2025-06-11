@@ -5,37 +5,42 @@ from __future__ import annotations
 import tempfile
 from datetime import datetime
 
-from aiogram import Router
-from aiogram.filters import Command, CommandObject
+from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, Message
 
+from app.bots.tg.states import InvoiceGeneration
 from app.core.repositories.tenant import TenantRepository
-from app.services.billing import BillingService
+from app.services.billing import BillingService, BillingError
 from app.services.export import ExportService
 
 router = Router(name=__name__)
 
 
-@router.message(Command("invoice"))
-async def handle_invoice_command(
-    message: Message, command: CommandObject, billing_service: BillingService
+@router.message(F.text == "📄 Получить счет")
+async def handle_invoice_command(message: Message, state: FSMContext):
+    """Starts the invoice generation process by asking for a period."""
+    await state.set_state(InvoiceGeneration.enter_period)
+    await message.answer(
+        "Введите период для выставления счетов в формате <b>ГГГГ-ММ</b>:"
+    )
+
+
+@router.message(InvoiceGeneration.enter_period)
+async def handle_period_for_invoice(
+    message: Message, state: FSMContext, billing_service: BillingService
 ):
     """
     Generates invoices for all tenants for a specified month.
-    Usage: /invoice YYYY-MM
     """
-    if not command.args:
-        await message.answer(
-            "Пожалуйста, укажите месяц в формате: <code>/invoice ГГГГ-ММ</code>"
-        )
+    await state.clear()
+    if not message.text:
         return
 
     try:
-        period = datetime.strptime(command.args, "%Y-%m").date()
+        period = datetime.strptime(message.text, "%Y-%m").date()
     except ValueError:
-        await message.answer(
-            "Неверный формат даты. Используйте: <code>/invoice ГГГГ-ММ</code>"
-        )
+        await message.answer("Неверный формат даты. Используйте: <b>ГГГГ-ММ</b>")
         return
 
     tenants = await TenantRepository().all()
@@ -59,5 +64,15 @@ async def handle_invoice_command(
                     FSInputFile(output_path),
                     caption=f"Счет для {tenant.name}",
                 )
+        except BillingError as e:
+            await message.answer(
+                f"⚠️ Не удалось создать счет для <b>{tenant.name}</b>.\n\n"
+                f"<b>Причина:</b> {e}\n\n"
+                "<i>Пожалуйста, убедитесь, что все необходимые данные (показания "
+                "за предыдущий и текущий месяцы, а также действующий тариф) "
+                "введены корректно.</i>"
+            )
         except Exception as e:
-            await message.answer(f"Ошибка при создании счета для {tenant.name}: {e}")
+            await message.answer(
+                f"❌ Произошла непредвиденная ошибка для {tenant.name}: {e}"
+            )

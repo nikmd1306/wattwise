@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from aiogram import F, Router
-from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from dateutil.relativedelta import relativedelta
 
-from app.bots.tg.keyboards.inline import MeterCallbackFactory, TenantCallbackFactory
+from app.bots.tg.keyboards.inline import SelectMeterCallback, SelectTenantCallback
 from app.bots.tg.states import ReadingEntry
 from app.core.repositories.meter import MeterRepository
 from app.core.repositories.reading import ReadingRepository
@@ -19,7 +20,7 @@ from app.core.repositories.tenant import TenantRepository
 router = Router(name=__name__)
 
 
-@router.message(Command("readings"))
+@router.message(F.text == "✍️ Ввести показания")
 async def handle_readings_command(message: Message):
     """Starts the reading entry process by showing a list of tenants."""
     tenants = await TenantRepository().all()
@@ -32,7 +33,7 @@ async def handle_readings_command(message: Message):
         builder.row(
             InlineKeyboardButton(
                 text=tenant.name,
-                callback_data=TenantCallbackFactory(id=str(tenant.id)).pack(),
+                callback_data=SelectTenantCallback(tenant_id=str(tenant.id)).pack(),
             )
         )
     await message.answer(
@@ -41,15 +42,15 @@ async def handle_readings_command(message: Message):
     )
 
 
-@router.callback_query(TenantCallbackFactory.filter())
+@router.callback_query(SelectTenantCallback.filter())
 async def handle_tenant_selection(
-    query: CallbackQuery, callback_data: TenantCallbackFactory
+    query: CallbackQuery, callback_data: SelectTenantCallback
 ):
     """Handles tenant selection and shows their meters."""
     if not isinstance(query.message, Message):
         return
 
-    tenant_id = callback_data.id
+    tenant_id = callback_data.tenant_id
     meters = await MeterRepository().get_for_tenant(tenant_id)
 
     if not meters:
@@ -61,23 +62,65 @@ async def handle_tenant_selection(
         builder.row(
             InlineKeyboardButton(
                 text=meter.name,
-                callback_data=MeterCallbackFactory(id=str(meter.id)).pack(),
+                callback_data=SelectMeterCallback(id=str(meter.id)).pack(),
             )
         )
     await query.message.edit_text("Выберите счетчик:", reply_markup=builder.as_markup())
 
 
-@router.callback_query(MeterCallbackFactory.filter())
+@router.callback_query(SelectMeterCallback.filter())
 async def handle_meter_selection(
-    query: CallbackQuery, callback_data: MeterCallbackFactory, state: FSMContext
+    query: CallbackQuery, callback_data: SelectMeterCallback, state: FSMContext
 ):
-    """Handles meter selection and asks for the reading value."""
+    """
+    Handles meter selection. If it's the first time a reading is entered,
+    it asks for the previous month's value first. Otherwise, it asks for
+    the current value.
+    """
     if not isinstance(query.message, Message):
         return
 
     await state.update_data(meter_id=callback_data.id)
+
+    # Check for previous month's reading to decide the flow
+    repo = ReadingRepository()
+    current_period = date.today().replace(day=1)
+    prev_period = current_period - relativedelta(months=1)
+    previous_reading = await repo.model.filter(
+        meter_id=callback_data.id, period=prev_period
+    ).first()
+
+    if previous_reading:
+        # Normal flow: previous reading exists
+        await state.set_state(ReadingEntry.enter_value)
+        await query.message.edit_text("Пожалуйста, введите текущее показание счетчика:")
+    else:
+        # First-time entry flow: no previous reading
+        await state.set_state(ReadingEntry.enter_previous_value)
+        await query.message.edit_text(
+            "Похоже, вы впервые вводите показания для этого счетчика.\n"
+            "Чтобы рассчитать расход, мне нужны данные за прошлый месяц.\n\n"
+            f"Пожалуйста, введите показание за <b>{prev_period:%B %Y}</b>:"
+        )
+
+
+@router.message(ReadingEntry.enter_previous_value)
+async def handle_previous_reading_value(message: Message, state: FSMContext):
+    """Handles the previous month's reading and asks for the current one."""
+    if not message.text:
+        return
+    try:
+        value = Decimal(message.text)
+    except InvalidOperation:
+        await message.answer("Неверный формат. Пожалуйста, введите число.")
+        return
+
+    await state.update_data(previous_value=value)
     await state.set_state(ReadingEntry.enter_value)
-    await query.message.edit_text("Пожалуйста, введите текущее показание счетчика:")
+    current_period = date.today().replace(day=1)
+    await message.answer(
+        "Отлично! А теперь введите показание за " f"<b>{current_period:%B %Y}</b>:"
+    )
 
 
 @router.message(ReadingEntry.enter_value)
@@ -92,36 +135,62 @@ async def handle_reading_value(message: Message, state: FSMContext):
         return
 
     await state.update_data(current_value=value)
-    # Here we would normally calculate consumption and cost.
-    # For now, just ask for confirmation.
-    # TODO: Implement calculation logic by calling a service.
+    data = await state.get_data()
+
+    # Prepare confirmation text
+    text = f"Вы ввели: {data['current_value']}. Подтверждаете?"
+    if "previous_value" in data:
+        current_period = date.today().replace(day=1)
+        prev_period = current_period - relativedelta(months=1)
+        text = (
+            "<b>Проверьте введенные данные:</b>\n"
+            f"Показание за {prev_period:%B %Y}: "
+            f"<b>{data['previous_value']}</b>\n"
+            f"Показание за {current_period:%B %Y}: "
+            f"<b>{data['current_value']}</b>\n\n"
+            "Все верно?"
+        )
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm"))
     builder.add(InlineKeyboardButton(text="❌ Отмена", callback_data="cancel"))
 
-    await message.answer(
-        f"Вы ввели: {value}. Подтверждаете?", reply_markup=builder.as_markup()
-    )
+    await message.answer(text, reply_markup=builder.as_markup())
     await state.set_state(ReadingEntry.confirm_entry)
 
 
 @router.callback_query(ReadingEntry.confirm_entry, F.data == "confirm")
 async def handle_confirmation(query: CallbackQuery, state: FSMContext):
-    """Handles confirmation, saves the reading, and ends the FSM."""
+    """Handles confirmation, saves the reading(s), and ends the FSM."""
     if not isinstance(query.message, Message):
         return
 
     data = await state.get_data()
+    repo = ReadingRepository()
+    current_period = date.today().replace(day=1)
 
-    # TODO: Use the real period.
-    await ReadingRepository().create(
+    # Save previous reading if it was entered
+    if "previous_value" in data:
+        prev_period = current_period - relativedelta(months=1)
+        await repo.update_or_create(
+            defaults={"value": data["previous_value"]},
+            meter_id=data["meter_id"],
+            period=prev_period,
+        )
+
+    # Save current reading
+    _, created = await repo.update_or_create(
+        defaults={"value": data["current_value"]},
         meter_id=data["meter_id"],
-        period="2024-07-01",
-        value=data["current_value"],
+        period=current_period,
     )
 
-    await query.message.edit_text("Показание успешно сохранено!")
+    if "previous_value" in data:
+        await query.message.edit_text("✅ Отлично! Оба показания сохранены.")
+    elif created:
+        await query.message.edit_text("✅ Показание успешно сохранено!")
+    else:
+        await query.message.edit_text("✅ Показание успешно обновлено!")
     await state.clear()
 
 

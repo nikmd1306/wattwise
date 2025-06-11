@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS "meter" (
     "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "name" VARCHAR(255) NOT NULL,
     "resource_type" VARCHAR(11) NOT NULL DEFAULT 'electricity' /* ELECTRICITY: electricity\nWATER: water\nHEAT: heat */,
+    "subtract_from_id" CHAR(36) REFERENCES "meter" ("id") ON DELETE SET NULL,
     "tenant_id" CHAR(36) NOT NULL REFERENCES "tenant" ("id") ON DELETE CASCADE
 ) /* Represents a utility meter. */;
 CREATE TABLE IF NOT EXISTS "reading" (
