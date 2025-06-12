@@ -11,9 +11,6 @@ from uuid import UUID
 from dateutil.relativedelta import relativedelta
 
 from app.core import calculations
-from app.core.calculations import (
-    recalculate_consumption_after_subtraction as _recalc_after_sub,
-)
 from app.core.models import Invoice, Meter, Tariff
 from app.core.repositories.invoice import InvoiceRepository
 from app.core.repositories.reading import ReadingRepository
@@ -33,8 +30,10 @@ class MeterBillingResult:
 
     meter: Meter
     tariff: Tariff
-    consumption: Consumption
+    consumption: Consumption  # Final consumption after adjustments
     cost: Decimal
+    raw_consumption: Consumption  # Consumption before any adjustments
+    manual_adjustment: Decimal  # The value of the adjustment made
 
 
 class BillingService:
@@ -59,7 +58,7 @@ class BillingService:
         Generates or updates a consolidated invoice for a given tenant and period.
 
         This method calculates consumption for all of the tenant's meters,
-        handles subtractive meters, calculates the total cost, and creates
+        applies any manual adjustments, calculates the total cost, and creates
         or updates an invoice record in the database.
 
         Returns:
@@ -70,16 +69,16 @@ class BillingService:
         if not tenant:
             raise BillingError(f"Tenant with id {tenant_id} not found.")
 
-        await tenant.fetch_related("meters__subtract_from")
+        await tenant.fetch_related("meters")
 
         billing_results: dict[UUID, MeterBillingResult] = {}
+        total_cost = Decimal("0")
+
         # First, calculate billing for all meters independently
         for meter in tenant.meters:
             result = await self._bill_meter(meter, period_date)
             billing_results[meter.id] = result
-
-        # Then, adjust for subtractive meters
-        total_cost = self._adjust_for_subtraction(billing_results)
+            total_cost += result.cost
 
         # Finally, create or update the invoice
         invoice, _ = await self._invoice_repo.update_or_create(
@@ -89,72 +88,28 @@ class BillingService:
         )
         return invoice, billing_results
 
-    def _adjust_for_subtraction(
-        self, billing_results: dict[UUID, MeterBillingResult]
-    ) -> Decimal:
-        """Adjusts costs for meters that subtract from others."""
-        final_costs: dict[UUID, Decimal] = {}
-
-        # Start with original results
-        for res in billing_results.values():
-            final_costs[res.meter.id] = res.cost
-
-        # Iterate over sub-meters and modify parent results
-        sub_meters = [r for r in billing_results.values() if r.meter.subtract_from]
-        for sub_result in sub_meters:
-            parent_meter = sub_result.meter.subtract_from
-            assert parent_meter is not None
-            parent_id = parent_meter.id
-            parent_result = billing_results[parent_id]
-
-            # Recalculate remaining consumption of parent meter
-            try:
-                new_parent_consumption = _recalc_after_sub(
-                    parent_result.consumption,
-                    sub_result.consumption,
-                )
-            except ValueError as e:
-                raise BillingError(str(e)) from e
-
-            # Calculate the cost of the remaining consumption
-            parent_rate = parent_result.tariff.rate
-            new_parent_cost = calculations.calculate_cost(
-                consumption=new_parent_consumption, rate=parent_rate
-            )
-
-            # Update the final costs
-            deduction = parent_result.cost - new_parent_cost
-            final_costs[parent_id] -= deduction
-
-            # Update the billing_results for further use (PDF, API)
-            billing_results[parent_id] = MeterBillingResult(
-                meter=parent_result.meter,
-                tariff=parent_result.tariff,
-                consumption=Consumption(new_parent_consumption),
-                cost=new_parent_cost,
-            )
-
-        return sum(final_costs.values(), Decimal("0"))
-
     async def _bill_meter(self, meter: Meter, period_date: date) -> MeterBillingResult:
         """Calculates consumption and cost for a single meter."""
         prev_period_date = period_date - relativedelta(months=1)
 
-        current_reading = await self._reading_repo.get_for_period(
+        current_readings = await self._reading_repo.get_for_period(
             meter.id, period_date, period_date
         )
-        prev_reading = await self._reading_repo.get_for_period(
+        prev_readings = await self._reading_repo.get_for_period(
             meter.id, prev_period_date, prev_period_date
         )
 
-        if not current_reading:
+        if not current_readings:
             raise BillingError(
                 f"No reading for meter {meter.id} in {period_date:%Y-%m}"
             )
-        if not prev_reading:
+        if not prev_readings:
             raise BillingError(
                 f"No previous reading for meter {meter.id} in {prev_period_date:%Y-%m}"
             )
+
+        current_reading = current_readings[0]
+        prev_reading = prev_readings[0]
 
         tariff = await self._tariff_repo.find_for_date(meter.id, period_date)
         if not tariff:
@@ -163,13 +118,26 @@ class BillingService:
             )
 
         consumption = calculations.calculate_consumption(
-            current_reading=current_reading[0].value,
-            previous_reading=prev_reading[0].value,
+            current_reading=current_reading.value,
+            previous_reading=prev_reading.value,
+            adjustment=current_reading.manual_adjustment or Decimal("0"),
         )
+        raw_consumption = calculations.calculate_consumption(
+            current_reading=current_reading.value, previous_reading=prev_reading.value
+        )
+
+        if consumption < 0:
+            consumption = Decimal("0")
+
         cost = calculations.calculate_cost(consumption=consumption, rate=tariff.rate)
 
         return MeterBillingResult(
-            meter=meter, tariff=tariff, consumption=Consumption(consumption), cost=cost
+            meter=meter,
+            tariff=tariff,
+            consumption=Consumption(consumption),
+            cost=cost,
+            raw_consumption=Consumption(raw_consumption),
+            manual_adjustment=current_reading.manual_adjustment or Decimal("0"),
         )
 
     async def add_adjustment(
@@ -214,10 +182,10 @@ class BillingService:
     def aggregate_costs_by_rate_type(
         billing_results: dict[UUID, "MeterBillingResult"],
     ) -> dict[str, Decimal]:
-        """Sums costs grouped by ``tariff.rate_type``."""
+        """Sums costs grouped by ``tariff.name``."""
         totals: dict[str, Decimal] = {}
         for res in billing_results.values():
-            key = res.tariff.rate_type or "default"
+            key = res.tariff.name or "default"
             totals[key] = totals.get(key, Decimal("0")) + res.cost
         return totals
 

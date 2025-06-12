@@ -6,14 +6,17 @@ from decimal import Decimal
 
 
 def calculate_consumption(
-    current_reading: Decimal, previous_reading: Decimal
+    current_reading: Decimal,
+    previous_reading: Decimal,
+    adjustment: Decimal = Decimal("0"),
 ) -> Decimal:
     """
-    Calculates the consumption between two meter readings.
+    Calculates the consumption between two meter readings, applying an adjustment.
 
     Args:
         current_reading: The most recent meter reading.
         previous_reading: The previous meter reading.
+        adjustment: A value to subtract from the raw consumption.
 
     Returns:
         The calculated consumption. Returns 0 if current reading
@@ -24,7 +27,9 @@ def calculate_consumption(
         # For now, we assume consumption is 0 in this case.
         # A more advanced implementation might log a warning.
         return Decimal("0")
-    return current_reading - previous_reading
+
+    raw_consumption = current_reading - previous_reading
+    return raw_consumption - adjustment
 
 
 def calculate_cost(consumption: Decimal, rate: Decimal) -> Decimal:

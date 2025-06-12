@@ -105,7 +105,16 @@
                 <tr>
                     <td>{{ detail.meter.name }}</td>
                     <td style="text-align: right">
+                        {% if detail.manual_adjustment > 0 %}
+                        <div style="line-height: 1.2;">
+                            <span style="text-decoration: line-through;">{{ "%.0f"|format(detail.raw_consumption) }}
+                                кВт·ч</span><br>
+                            <small>Вычет: -{{ "%.0f"|format(detail.manual_adjustment) }} кВт·ч</small><br>
+                            <strong>{{ "%.0f"|format(detail.consumption) }} кВт·ч</strong>
+                        </div>
+                        {% else %}
                         {{ "%.0f"|format(detail.consumption) }} кВт·ч
+                        {% endif %}
                     </td>
                     <td style="text-align: right">
                         {{ "%.2f"|format(detail.tariff.rate) }} ₽
@@ -114,6 +123,20 @@
                         {{ "%.2f"|format(detail.cost) }} ₽
                     </td>
                 </tr>
+                {% set info = report.deduction_info.get(detail.meter.id) %}
+                {% if info %}
+                <tr>
+                    <td colspan="4"
+                        style="font-size: 0.8em; color: #555; border-top: 1px dashed #ddd; padding-top: 5px;">
+                        {% if info.type == 'parent' %}
+                        <i>* Корректировка по правилу «{{ info.description }}».</i>
+                        {% elif info.type == 'child' %}
+                        <i>* Примечание: расход по этому счётчику использован для корректировки счёта арендатора {{
+                            info.parent_info }}.</i>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
             <tfoot>

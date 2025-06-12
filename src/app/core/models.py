@@ -33,6 +33,7 @@ class Tenant(BaseModel):
     name = fields.CharField(max_length=255, unique=True)
     meters: fields.ReverseRelation[Meter]
     invoices: fields.ReverseRelation[Invoice]
+    deduction_links: fields.ReverseRelation["DeductionLink"]
 
     def __str__(self) -> str:
         return self.name
@@ -46,16 +47,12 @@ class Meter(BaseModel):
     tenant: fields.ForeignKeyRelation[Tenant] = fields.ForeignKeyField(
         "models.Tenant", related_name="meters"
     )
-    subtract_from: fields.ForeignKeyNullableRelation["Meter"] = fields.ForeignKeyField(
-        "models.Meter",
-        related_name="sub_meters",
-        null=True,
-        on_delete=fields.SET_NULL,
-    )
 
     readings: fields.ReverseRelation[Reading]
     tariffs: fields.ReverseRelation[Tariff]
-    sub_meters: fields.ReverseRelation["Meter"]
+
+    deduction_links: fields.ReverseRelation["DeductionLink"]
+    source_for_deductions: fields.ReverseRelation["DeductionLink"]
 
     def __str__(self) -> str:
         return f"{self.tenant} - {self.name} " f"({self.resource_type.value})"
@@ -69,6 +66,13 @@ class Reading(BaseModel):
     meter: fields.ForeignKeyRelation[Meter] = fields.ForeignKeyField(
         "models.Meter", related_name="readings"
     )
+    manual_adjustment = fields.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        default=0,
+        description="Manual adjustment in kWh entered by user",
+    )
 
     class Meta:
         unique_together = ("meter", "period")
@@ -80,8 +84,8 @@ class Reading(BaseModel):
 class Tariff(BaseModel):
     """Represents a tariff with a specific rate for a period."""
 
+    name = fields.CharField(max_length=50, default="Стандартный")
     rate = fields.DecimalField(max_digits=10, decimal_places=4)
-    rate_type = fields.CharField(max_length=50, default="")
     period_start = fields.DateField()
     period_end = fields.DateField(null=True)
     meter: fields.ForeignKeyRelation[Meter] = fields.ForeignKeyField(
@@ -91,7 +95,7 @@ class Tariff(BaseModel):
     def __str__(self) -> str:
         end_period = self.period_end or "now"
         return (
-            f"Tariff for {self.meter}: {self.rate} ({self.rate_type}) "
+            f"Tariff for {self.meter}: {self.rate} ({self.name}) "
             f"({self.period_start} to {end_period})"
         )
 
@@ -128,3 +132,36 @@ class Adjustment(BaseModel):
             f"Adjustment on invoice {self.invoice.id}: "
             f"{self.amount} ({self.description})"
         )
+
+
+class DeductionLink(BaseModel):
+    """
+    Describes a link between two meters for subsequent manual deduction
+    by the user when entering readings.
+    """
+
+    parent_meter_id: uuid.UUID
+    child_meter_id: uuid.UUID
+
+    parent_meter: fields.ForeignKeyRelation[Meter] = fields.ForeignKeyField(
+        "models.Meter",
+        related_name="deduction_links",
+        description="The meter from which the value will be deducted",
+    )
+    child_meter: fields.ForeignKeyRelation[Meter] = fields.ForeignKeyField(
+        "models.Meter",
+        related_name="source_for_deductions",
+        description="The meter whose consumption is used as a basis for deduction",
+    )
+    description = fields.CharField(
+        max_length=255, help_text="A brief description shown to the user"
+    )
+
+    class Meta:
+        """Meta-information for the DeductionLink model."""
+
+        unique_together = ("parent_meter", "child_meter")
+
+    def __str__(self) -> str:
+        """String representation of the deduction link."""
+        return f"Deduction from {self.parent_meter_id} based on {self.child_meter_id}"

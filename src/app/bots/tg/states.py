@@ -8,6 +8,7 @@ class ReadingEntry(StatesGroup):
 
     enter_previous_value = State()
     enter_value = State()
+    enter_adjustment = State()
     confirm_entry = State()
 
 
@@ -23,7 +24,7 @@ class TariffManagement(StatesGroup):
     select_tenant = State()
     select_meter = State()
     manage_existing = State()
-    enter_rate_name = State()
+    enter_name = State()
     enter_rate = State()
     enter_start_date = State()
     confirm_creation = State()
@@ -36,6 +37,18 @@ class MeterManagement(StatesGroup):
     enter_name = State()
     ask_is_submeter = State()
     select_parent_meter = State()
+
+
+class DeductionLinkManagement(StatesGroup):
+    """States for deduction link management."""
+
+    start = State()
+    select_parent_tenant = State()
+    select_parent_meter = State()
+    select_child_tenant = State()
+    select_child_meter = State()
+    enter_description = State()
+    confirm_creation = State()
 
 
 class Onboarding(StatesGroup):

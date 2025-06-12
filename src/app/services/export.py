@@ -12,7 +12,7 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
 from app.core.dates import format_period_for_display
-from app.core.models import Invoice
+from app.core.models import DeductionLink, Invoice
 from app.services.billing import MeterBillingResult
 
 
@@ -48,10 +48,38 @@ class ExportService:
             str(key): value for key, value in billing_details.items()
         }
 
+        # --- Prepare deduction explanations ---
+        deduction_info = {}
+        for detail in billing_details.values():
+            # Check if this meter is a PARENT in a link
+            if detail.manual_adjustment > 0:
+                link = await DeductionLink.filter(
+                    parent_meter_id=detail.meter.id
+                ).first()
+                if link:
+                    deduction_info[detail.meter.id] = {
+                        "type": "parent",
+                        "description": link.description,
+                    }
+
+            # Check if this meter is a CHILD in a link
+            link = await DeductionLink.filter(child_meter_id=detail.meter.id).first()
+            if link:
+                await link.fetch_related("parent_meter__tenant")
+                parent_meter = link.parent_meter
+                parent_tenant = parent_meter.tenant
+                deduction_info[detail.meter.id] = {
+                    "type": "child",
+                    "parent_info": (
+                        f"{parent_tenant.name} " f"(счётчик «{parent_meter.name}»)"
+                    ),
+                }
+        # --- End of explanations ---
+
         # Aggregate totals per tariff type
         totals_by_rate_type: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
         for detail in billing_details.values():
-            key = detail.tariff.rate_type or "default"
+            key = detail.tariff.name or "default"
             totals_by_rate_type[key] += detail.cost
 
         rendered_html = template.render(
@@ -60,6 +88,7 @@ class ExportService:
             period=invoice.period.strftime("%B %Y"),
             details=details_with_str_keys,
             totals_by_rate_type=totals_by_rate_type,
+            deduction_info=deduction_info,
         )
 
         output_path = Path(output_path)
@@ -89,6 +118,34 @@ class ExportService:
             The path to the generated PDF file.
         """
         template = self._env.get_template("summary_report.html")
+
+        # --- Prepare deduction explanations for all tenants ---
+        for report_item in summary_data:
+            report_item["deduction_info"] = {}
+            for detail in report_item["details"]:
+                meter_id = detail.meter.id
+                # Check if this meter is a PARENT in a link
+                if detail.manual_adjustment > 0:
+                    link = await DeductionLink.filter(parent_meter_id=meter_id).first()
+                    if link:
+                        report_item["deduction_info"][meter_id] = {
+                            "type": "parent",
+                            "description": link.description,
+                        }
+
+                # Check if this meter is a CHILD in a link
+                link = await DeductionLink.filter(child_meter_id=meter_id).first()
+                if link:
+                    await link.fetch_related("parent_meter__tenant")
+                    parent_meter = link.parent_meter
+                    parent_tenant = parent_meter.tenant
+                    report_item["deduction_info"][meter_id] = {
+                        "type": "child",
+                        "parent_info": (
+                            f"{parent_tenant.name} " f"(счётчик «{parent_meter.name}»)"
+                        ),
+                    }
+        # --- End of explanations ---
 
         rendered_html = template.render(
             period=format_period_for_display(period),

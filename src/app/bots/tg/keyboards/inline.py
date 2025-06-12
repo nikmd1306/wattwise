@@ -32,3 +32,12 @@ class SelectPeriodCallback(CallbackData, prefix="period"):
 
     action: str  # e.g., 'invoice', 'summary'
     period: str  # YYYY-MM
+
+
+class DeductionLinkCallback(CallbackData, prefix="ded"):
+    """Callback data for deduction link management."""
+
+    action: str  # e.g. 'create', 'delete', 'select_parent', 'select_child'
+    link_id: str | None = None
+    tenant_id: str | None = None
+    meter_id: str | None = None
