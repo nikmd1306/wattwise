@@ -112,7 +112,7 @@ async def handle_meter_selection(
             warn_sub = ""
 
         await query.message.edit_text(
-            "Показание за <b>{:%B %Y}</b>: <b>{}</b>{}"
+            "Показание за <b>{:%B %Y}</b>: <b>{:.0f}</b>{}"
             "\n\nВведите текущее показание:".format(
                 prev_period, previous_reading.value, warn_sub
             )
@@ -170,13 +170,13 @@ async def handle_reading_value(message: Message, state: FSMContext):
 
         text = (
             "<b>Проверьте введенные данные:</b>\n"
-            f"Показание за {prev_period:%B %Y}: <b>{prev_val}</b>\n"
-            f"Показание за {current_period:%B %Y}: <b>{value}</b>\n"
-            f"Расход за месяц: <b>{diff}</b> кВт·ч\n\n"
+            f"Показание за {prev_period:%B %Y}: <b>{prev_val:.0f}</b>\n"
+            f"Показание за {current_period:%B %Y}: <b>{value:.0f}</b>\n"
+            f"Расход за месяц: <b>{diff:.0f}</b> кВт·ч\n\n"
             "Все верно?"
         )
     else:
-        text = f"Вы ввели: {value}. Подтверждаете?"
+        text = f"Вы ввели: {value:.0f}. Подтверждаете?"
 
     builder = InlineKeyboardBuilder()
     builder.add(InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm"))

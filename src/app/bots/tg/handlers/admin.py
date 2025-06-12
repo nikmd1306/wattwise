@@ -280,7 +280,7 @@ async def handle_tariff_meter_select(
         for t in tariffs:
             period_end = t.period_end.strftime("%d.%m.%Y") if t.period_end else "…"
             desc = (
-                f"• {t.rate_type or '—'} — {t.rate} ₽ "
+                f"• {t.rate_type or '—'} — {t.rate:.2f} ₽ "
                 f"(с {t.period_start:%d.%m.%Y} по {period_end})"
             )
             text_lines.append(desc)
@@ -371,7 +371,7 @@ async def handle_tariff_start_date(message: Message, state: FSMContext):
         "<b>Подтвердите создание тарифа:</b>\n\n"
         f"<b>Арендатор:</b> {data['tenant_name']}\n"
         f"<b>Счетчик:</b> {data['meter_name']}\n"
-        f"<b>Тариф:</b> {data['rate_name']} — {data['rate']} ₽\n"
+        f"<b>Тариф:</b> {data['rate_name']} — {Decimal(data['rate']):.2f} ₽\n"
         f"<b>Действует с:</b> {start_date.strftime('%d.%m.%Y')}\n\n"
         "Все верно?"
     )
@@ -468,7 +468,7 @@ async def handle_copy_tariff(query: CallbackQuery, state: FSMContext):
     await state.set_state(TariffManagement.enter_start_date)
 
     await query.message.edit_text(
-        "Скопирован тариф «{} — {} ₽».\n"
+        "Скопирован тариф «{} — {:.2f} ₽».\n"
         "Введите новую дату начала в формате <b>ДД-ММ-ГГГГ</b>:".format(
             tariff.rate_type or "—", tariff.rate
         )

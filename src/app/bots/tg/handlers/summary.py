@@ -67,6 +67,7 @@ async def handle_summary_period(
         rows,
         headers=["Арендатор", "Сумма, ₽"],
         tablefmt="plain",
+        floatfmt=".2f",
     )
     table_text = f"<pre>{table_body}</pre>"
 

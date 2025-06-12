@@ -120,7 +120,7 @@
                 <tr>
                     <td>Счетчик «{{ detail.meter.name }}»</td>
                     <td style="text-align: right">
-                        {{ "%.2f"|format(detail.consumption) }} кВт·ч
+                        {{ "%.0f"|format(detail.consumption) }} кВт·ч
                     </td>
                     <td style="text-align: right">
                         {{ "%.2f"|format(detail.tariff.rate) }} ₽
