@@ -11,6 +11,7 @@ def get_main_menu(is_admin: bool = False) -> ReplyKeyboardMarkup:
         KeyboardButton(text="✍️ Ввести показания"),
         KeyboardButton(text="📄 Получить счет"),
     )
+    builder.row(KeyboardButton(text="📊 Сводный отчет"))
     if is_admin:
         builder.row(KeyboardButton(text="⚙️ Админ-панель"))
     return builder.as_markup(resize_keyboard=True)

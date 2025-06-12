@@ -6,10 +6,12 @@ from pathlib import Path
 from uuid import UUID
 from collections import defaultdict
 from decimal import Decimal
+from datetime import date
 
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
+from app.core.dates import format_period_for_display
 from app.core.models import Invoice
 from app.services.billing import MeterBillingResult
 
@@ -58,6 +60,40 @@ class ExportService:
             period=invoice.period.strftime("%B %Y"),
             details=details_with_str_keys,
             totals_by_rate_type=totals_by_rate_type,
+        )
+
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        HTML(string=rendered_html).write_pdf(output_path)
+
+        return output_path
+
+    async def generate_pdf_summary(
+        self,
+        period: date,
+        summary_data: list[dict],
+        grand_total: Decimal,
+        output_path: Path | str,
+    ) -> Path:
+        """
+        Generates a PDF summary report.
+
+        Args:
+            period: The reporting period.
+            summary_data: A list of dicts, each containing tenant data.
+            grand_total: The grand total for the report.
+            output_path: The path where the PDF file will be saved.
+
+        Returns:
+            The path to the generated PDF file.
+        """
+        template = self._env.get_template("summary_report.html")
+
+        rendered_html = template.render(
+            period=format_period_for_display(period),
+            summary_data=summary_data,
+            grand_total=grand_total,
         )
 
         output_path = Path(output_path)

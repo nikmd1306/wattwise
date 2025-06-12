@@ -551,11 +551,11 @@ async def handle_meter_list_for_tenant(query: CallbackQuery, state: FSMContext):
 
         builder.row(
             InlineKeyboardButton(
-                text="⚙ Изм",
+                text="⚙ Изменить",
                 callback_data=f"meter_edit:{m.id}",
             ),
             InlineKeyboardButton(
-                text="🗑 Del",
+                text="🗑 Удалить",
                 callback_data=f"meter_del:{m.id}",
             ),
         )

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Сводный отчет</title>
+    <style>
+        body {
+            font-family: DejaVu Sans, sans-serif;
+            margin: 40px;
+            color: #333;
+        }
+
+        .invoice-box {
+            max-width: 800px;
+            margin: auto;
+            padding: 30px;
+            border: 1px solid #eee;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+            font-size: 16px;
+            line-height: 24px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1,
+        h2 {
+            color: #1a1a1a;
+            margin: 20px 0 10px;
+        }
+
+        .details {
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .details p {
+            margin: 0;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .items-table th,
+        .items-table td {
+            border-bottom: 1px solid #eee;
+            padding: 10px;
+        }
+
+        .items-table th {
+            background-color: #f9f9f9;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .total {
+            text-align: right;
+            margin-top: 50px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 0.8em;
+            color: #777;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="invoice-box">
+        <div class="header">
+            <h1>Сводный отчет</h1>
+        </div>
+        <div class="details">
+            <p><strong>Период:</strong> {{ period }}</p>
+        </div>
+
+        {% for report in summary_data %}
+        <h2 style="margin-top: 40px; border-bottom: 2px solid #ccc; padding-bottom: 5px;">
+            Арендатор: {{ report.tenant_name }}
+        </h2>
+        {% if report.error %}
+        <p style="color: red;">{{ report.error }}</p>
+        {% else %}
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Счетчик</th>
+                    <th style="text-align: right">Расход</th>
+                    <th style="text-align: right">Тариф</th>
+                    <th style="text-align: right">Сумма</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for detail in report.details %}
+                <tr>
+                    <td>{{ detail.meter.name }}</td>
+                    <td style="text-align: right">
+                        {{ "%.0f"|format(detail.consumption) }} кВт·ч
+                    </td>
+                    <td style="text-align: right">
+                        {{ "%.2f"|format(detail.tariff.rate) }} ₽
+                    </td>
+                    <td style="text-align: right">
+                        {{ "%.2f"|format(detail.cost) }} ₽
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="border-top: 2px solid #333; font-weight: bold;">
+                    <td colspan="3" style="text-align: right;">Итого по арендатору:</td>
+                    <td style="text-align: right;">
+                        {{ "%.2f"|format(report.total_amount) }} ₽
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+        {% endif %}
+        {% endfor %}
+
+        <div class="total">
+            <p>Общий итог: {{ "%.2f"|format(grand_total) }} ₽</p>
+        </div>
+
+        <div class="footer">
+            <p>Сформировано автоматически WattWise</p>
+        </div>
+    </div>
+</body>
+
+</html>

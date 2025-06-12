@@ -1,21 +1,25 @@
 from __future__ import annotations
 
+import logging
+import tempfile
 from datetime import datetime
 from decimal import Decimal
 
 from aiogram import F, Router
-from aiogram.types import CallbackQuery, Message
-from tabulate import tabulate
+from aiogram.types import CallbackQuery, FSInputFile, Message
 
 from app.bots.tg.handlers.utils import get_period_keyboard
 from app.bots.tg.keyboards.inline import SelectPeriodCallback
+from app.core.dates import format_period_for_display
 from app.core.repositories.tenant import TenantRepository
 from app.services.billing import BillingError, BillingService
+from app.services.export import ExportService
 
 router = Router(name=__name__)
+logger = logging.getLogger(__name__)
 
 
-@router.message(F.text == "/summary")
+@router.message(F.text == "📊 Сводный отчет")
 async def handle_summary_command(message: Message):
     """Starts the summary report generation by showing recent months."""
     builder = get_period_keyboard("summary")
@@ -48,31 +52,56 @@ async def handle_summary_period(
         await query.message.edit_text("Арендаторы не найдены.")
         return
 
-    # Prepare data
-    rows: list[tuple[str, Decimal]] = []
+    summary_data: list[dict] = []
+    text_rows: list[tuple[str, str]] = []
+    grand_total = Decimal("0")
 
-    await query.message.edit_text(f"Формирую отчёт за {period:%B %Y}...")
+    period_str_display = format_period_for_display(period)
+    await query.message.edit_text(f"Формирую отчёт за {period_str_display}...")
 
     for tenant in tenants:
         try:
-            invoice, _ = await billing_service.generate_invoice(tenant.id, period)
-            rows.append((tenant.name, invoice.amount))
-        except BillingError:
-            rows.append((tenant.name, Decimal("0")))
-        except Exception as e:  # pragma: no cover
-            await query.message.answer(f"Ошибка для {tenant.name}: {e}")
+            invoice, details = await billing_service.generate_invoice(tenant.id, period)
+            summary_data.append(
+                {
+                    "tenant_name": tenant.name,
+                    "total_amount": invoice.amount,
+                    "details": list(details.values()),
+                }
+            )
+            text_rows.append((tenant.name, f"{invoice.amount:.2f} ₽"))
+            grand_total += invoice.amount
+        except BillingError as e:
+            summary_data.append(
+                {
+                    "tenant_name": tenant.name,
+                    "total_amount": Decimal("0"),
+                    "details": [],
+                    "error": str(e),
+                }
+            )
+            text_rows.append((tenant.name, "Ошибка"))
+        except Exception as e:
+            logger.error(f"Error generating invoice for {tenant.name}: {e}")
+            text_rows.append((tenant.name, "Ошибка"))
 
-    # Build simple table text
-    table_body = tabulate(
-        rows,
-        headers=["Арендатор", "Сумма, ₽"],
-        tablefmt="plain",
-        floatfmt=".2f",
-    )
-    table_text = f"<pre>{table_body}</pre>"
+    period_str_title = format_period_for_display(period)
+    title = f"<b>Сводный отчёт по арендаторам за {period_str_title} г.</b>"
 
-    title = "<b>Сводный отчёт за {:%B %Y}</b>".format(period)
-    # Edit the original message to show the final report
-    await query.message.edit_text(f"{title}\n{table_text}")
-
-    # TODO: export combined PDF/ZIP при необходимости
+    export_service = ExportService()
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
+            output_path = await export_service.generate_pdf_summary(
+                period=period,
+                summary_data=summary_data,
+                grand_total=grand_total,
+                output_path=temp_file.name,
+            )
+            await query.message.answer_document(
+                FSInputFile(output_path),
+                caption=title,
+            )
+            await query.message.delete()
+    except Exception as e:
+        logger.error(f"Failed to generate summary PDF: {e}", exc_info=True)
+        await query.message.edit_text(f"❌ Не удалось создать PDF отчёт. Ошибка: {e}")
