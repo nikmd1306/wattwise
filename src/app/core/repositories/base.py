@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Generic, Type, TypeVar
+from typing import Any, Generic, Type, TypeVar
 from uuid import UUID
 
 from tortoise.models import Model
@@ -21,13 +21,13 @@ class BaseRepository(Generic[ModelType]):
         return await self.model.get_or_none(id=pk)
 
     async def get_or_create(
-        self, defaults: dict | None = None, **kwargs
+        self, defaults: dict[str, Any] | None = None, **kwargs: Any
     ) -> tuple[ModelType, bool]:
         """Get or create a model instance."""
         return await self.model.get_or_create(defaults=defaults, **kwargs)
 
     async def update_or_create(
-        self, defaults: dict | None = None, **kwargs
+        self, defaults: dict[str, Any] | None = None, **kwargs: Any
     ) -> tuple[ModelType, bool]:
         """Update or create a model instance."""
         return await self.model.update_or_create(defaults=defaults, **kwargs)
@@ -36,7 +36,7 @@ class BaseRepository(Generic[ModelType]):
         """Get all model instances."""
         return await self.model.all()
 
-    async def create(self, **kwargs) -> ModelType:
+    async def create(self, **kwargs: Any) -> ModelType:
         """Create a new model instance."""
         return await self.model.create(**kwargs)
 

@@ -42,7 +42,7 @@ def _get_onboarding_content(page: int) -> tuple[str, InlineKeyboardBuilder]:
 
 
 @router.message(CommandStart())
-async def handle_start(message: Message, state: FSMContext):
+async def handle_start(message: Message, state: FSMContext) -> None:
     """Handler for the /start command."""
     if not message.from_user:
         return
@@ -55,7 +55,7 @@ async def handle_start(message: Message, state: FSMContext):
 @router.callback_query(
     StateFilter(Onboarding.page1, Onboarding.page2), F.data.startswith("onb_next:")
 )
-async def onboarding_next(query: CallbackQuery, state: FSMContext):
+async def onboarding_next(query: CallbackQuery, state: FSMContext) -> None:
     if not isinstance(query.message, Message) or not query.data:
         return
 
@@ -70,7 +70,7 @@ async def onboarding_next(query: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(Onboarding.page3, F.data == "onb_done")
-async def onboarding_done(query: CallbackQuery, state: FSMContext):
+async def onboarding_done(query: CallbackQuery, state: FSMContext) -> None:
     if not isinstance(query.message, Message) or not query.from_user:
         return
 

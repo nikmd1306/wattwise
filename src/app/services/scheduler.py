@@ -27,7 +27,7 @@ class SchedulerService:
         self._tenant_repo = tenant_repo
         self._scheduler = scheduler
 
-    def start(self):
+    def start(self) -> None:
         """Starts the scheduler and adds jobs."""
         logger.info("Starting scheduler...")
         self._scheduler.add_job(
@@ -39,7 +39,7 @@ class SchedulerService:
         self._scheduler.start()
         logger.info("Scheduler started.")
 
-    async def _run_nightly_billing(self):
+    async def _run_nightly_billing(self) -> None:
         """
         Fetches all tenants and triggers invoice generation for the current day.
         """

@@ -18,7 +18,7 @@ router = Router(name=__name__)
 
 
 @router.message(F.text == "📄 Получить счет")
-async def handle_invoice_command(message: Message):
+async def handle_invoice_command(message: Message) -> None:
     """Starts the invoice generation process by showing recent months."""
     builder = get_period_keyboard("invoice")
     await message.answer(
@@ -31,7 +31,7 @@ async def handle_period_for_invoice(
     query: CallbackQuery,
     callback_data: SelectPeriodCallback,
     billing_service: BillingService,
-):
+) -> None:
     """
     Generates invoices for all tenants for a specified month.
     """

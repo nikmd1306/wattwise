@@ -23,7 +23,7 @@ router = Router(name=__name__)
 
 
 @router.message(F.text == "✍️ Ввести показания")
-async def handle_readings_command(message: Message):
+async def handle_readings_command(message: Message) -> None:
     """Starts the reading entry process by showing a list of tenants."""
     tenants = await TenantRepository().all()
     if not tenants:
@@ -47,7 +47,7 @@ async def handle_readings_command(message: Message):
 @router.callback_query(SelectTenantCallback.filter())
 async def handle_tenant_selection(
     query: CallbackQuery, callback_data: SelectTenantCallback
-):
+) -> None:
     """Handles tenant selection and shows their meters."""
     if not isinstance(query.message, Message):
         return
@@ -73,7 +73,7 @@ async def handle_tenant_selection(
 @router.callback_query(SelectMeterCallback.filter())
 async def handle_meter_selection(
     query: CallbackQuery, callback_data: SelectMeterCallback, state: FSMContext
-):
+) -> None:
     """
     Handles meter selection. If it's the first time a reading is entered,
     it asks for the previous month's value first. Otherwise, it asks for
@@ -116,7 +116,7 @@ async def handle_meter_selection(
 
 
 @router.message(ReadingEntry.enter_previous_value)
-async def handle_previous_reading_value(message: Message, state: FSMContext):
+async def handle_previous_reading_value(message: Message, state: FSMContext) -> None:
     """Handles the previous month's reading and asks for the current one."""
     if not message.text:
         return
@@ -134,7 +134,9 @@ async def handle_previous_reading_value(message: Message, state: FSMContext):
     )
 
 
-async def _check_for_deductions_and_proceed(message: Message, state: FSMContext):
+async def _check_for_deductions_and_proceed(
+    message: Message, state: FSMContext
+) -> None:
     """
     Checks if the current meter has deduction links. If so, prompts the user
     for an adjustment. Otherwise, proceeds directly to confirmation.
@@ -202,7 +204,7 @@ async def _check_for_deductions_and_proceed(message: Message, state: FSMContext)
 
 async def _show_confirmation(
     message: Message, state: FSMContext, adjustment: Decimal | None = None
-):
+) -> None:
     """Shows the final confirmation message to the user."""
     await state.update_data(manual_adjustment=str(adjustment or Decimal("0")))
     data = await state.get_data()
@@ -237,7 +239,7 @@ async def _show_confirmation(
 
 
 @router.message(ReadingEntry.enter_value)
-async def handle_reading_value(message: Message, state: FSMContext):
+async def handle_reading_value(message: Message, state: FSMContext) -> None:
     """Handles the entered reading value and checks for deductions."""
     if not message.text:
         return
@@ -252,9 +254,9 @@ async def handle_reading_value(message: Message, state: FSMContext):
 
 
 @router.callback_query(ReadingEntry.enter_adjustment, F.data.startswith("adj:"))
-async def handle_adjustment_button(query: CallbackQuery, state: FSMContext):
-    """Handles adjustment from a button."""
-    if not query.data or not isinstance(query.message, Message):
+async def handle_adjustment_button(query: CallbackQuery, state: FSMContext) -> None:
+    """Handles adjustment selection from a button."""
+    if not isinstance(query.message, Message) or not query.data:
         return
     try:
         value = Decimal(query.data.split(":", 1)[1])
@@ -265,8 +267,8 @@ async def handle_adjustment_button(query: CallbackQuery, state: FSMContext):
 
 
 @router.message(ReadingEntry.enter_adjustment)
-async def handle_adjustment_message(message: Message, state: FSMContext):
-    """Handles adjustment from a text message."""
+async def handle_adjustment_message(message: Message, state: FSMContext) -> None:
+    """Handles manual adjustment entry."""
     if not message.text:
         return
     try:
@@ -278,8 +280,8 @@ async def handle_adjustment_message(message: Message, state: FSMContext):
 
 
 @router.callback_query(ReadingEntry.confirm_entry, F.data == "confirm")
-async def handle_confirmation(query: CallbackQuery, state: FSMContext):
-    """Handles confirmation, saves the reading(s), and ends the FSM."""
+async def handle_confirmation(query: CallbackQuery, state: FSMContext) -> None:
+    """Saves the entered reading to the database."""
     if not isinstance(query.message, Message):
         return
 
@@ -317,9 +319,9 @@ async def handle_confirmation(query: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(ReadingEntry.confirm_entry, F.data == "cancel")
-async def handle_cancellation(query: CallbackQuery, state: FSMContext):
-    """Handles cancellation and ends the FSM."""
+async def handle_cancellation(query: CallbackQuery, state: FSMContext) -> None:
+    """Cancels the reading entry process."""
+    await state.clear()
     if not isinstance(query.message, Message):
         return
-    await query.message.edit_text("Действие отменено.")
-    await state.clear()
+    await query.message.edit_text("Ввод показаний отменен.")

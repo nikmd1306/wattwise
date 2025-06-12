@@ -29,7 +29,7 @@ from app.core.repositories.invoice import InvoiceRepository
 logger = logging.getLogger(__name__)
 
 
-async def on_startup(dispatcher: Dispatcher, bot: Bot):
+async def on_startup(dispatcher: Dispatcher, bot: Bot) -> None:
     """Actions on bot startup."""
     logger.info("Initializing database...")
     await Tortoise.init(config=TORTOISE_ORM)
@@ -50,7 +50,7 @@ async def on_startup(dispatcher: Dispatcher, bot: Bot):
     logger.info("Bot started.")
 
 
-async def on_shutdown(bot: Bot):
+async def on_shutdown(bot: Bot) -> None:
     """Actions on bot shutdown."""
     logger.info("Closing connections...")
     await Tortoise.close_connections()
@@ -58,7 +58,7 @@ async def on_shutdown(bot: Bot):
     logger.info("Connections closed.")
 
 
-async def main():
+async def main() -> None:
     """Initializes and starts the bot."""
     try:
         locale.setlocale(locale.LC_TIME, "ru_RU.UTF-8")

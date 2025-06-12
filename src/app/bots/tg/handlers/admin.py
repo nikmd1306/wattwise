@@ -30,14 +30,14 @@ router.callback_query.middleware(AdminAccessMiddleware())
 
 # --- Tenant Creation FSM ---
 @router.message(F.text == "👤 Создать арендатора")
-async def handle_new_tenant(message: Message, state: FSMContext):
+async def handle_new_tenant(message: Message, state: FSMContext) -> None:
     """Starts the process of creating a new tenant."""
     await state.set_state(TenantManagement.enter_name)
     await message.answer("Введите имя нового арендатора:")
 
 
 @router.message(TenantManagement.enter_name)
-async def handle_tenant_name(message: Message, state: FSMContext):
+async def handle_tenant_name(message: Message, state: FSMContext) -> None:
     """Handles the new tenant's name and saves it."""
     if not message.text:
         await message.answer("Имя не может быть пустым. Попробуйте еще раз.")
@@ -56,7 +56,7 @@ async def handle_tenant_name(message: Message, state: FSMContext):
 
 # --- Meter Creation FSM ---
 @router.message(F.text == "📟 Добавить счетчик")
-async def handle_new_meter(message: Message, state: FSMContext):
+async def handle_new_meter(message: Message, state: FSMContext) -> None:
     """Starts the FSM for adding a new meter."""
     tenants = await TenantRepository().all()
     if not tenants:
@@ -83,7 +83,7 @@ async def handle_new_meter(message: Message, state: FSMContext):
 @router.callback_query(AdminActionCallback.filter(F.action == "stm"))
 async def handle_meter_tenant_select(
     query: CallbackQuery, callback_data: AdminActionCallback, state: FSMContext
-):
+) -> None:
     """Handles tenant selection for meter and asks for its name."""
     if not isinstance(query.message, Message):
         return
@@ -95,7 +95,7 @@ async def handle_meter_tenant_select(
 
 
 @router.message(MeterManagement.enter_name)
-async def handle_meter_name(message: Message, state: FSMContext):
+async def handle_meter_name(message: Message, state: FSMContext) -> None:
     """Handles the new meter's name and saves it."""
     if not message.text:
         await message.answer("Название не может быть пустым. Попробуйте еще раз.")
@@ -130,7 +130,7 @@ async def handle_meter_name(message: Message, state: FSMContext):
 
 
 @router.callback_query(MeterManagement.ask_is_submeter, F.data == "sub_no")
-async def handle_meter_no_sub(query: CallbackQuery, state: FSMContext):
+async def handle_meter_no_sub(query: CallbackQuery, state: FSMContext) -> None:
     """Creates meter without parent."""
     if not isinstance(query.message, Message):
         return
@@ -141,7 +141,7 @@ async def handle_meter_no_sub(query: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(MeterManagement.ask_is_submeter, F.data == "sub_yes")
-async def handle_meter_yes_sub(query: CallbackQuery, state: FSMContext):
+async def handle_meter_yes_sub(query: CallbackQuery, state: FSMContext) -> None:
     """Shows list of potential parent meters."""
     if not isinstance(query.message, Message):
         return
@@ -167,7 +167,7 @@ async def handle_meter_yes_sub(query: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(MeterManagement.select_parent_meter)
-async def handle_parent_selected(query: CallbackQuery, state: FSMContext):
+async def handle_parent_selected(query: CallbackQuery, state: FSMContext) -> None:
     """Creates new meter with chosen parent."""
     if not isinstance(query.message, Message):
         return
@@ -191,7 +191,7 @@ async def handle_parent_selected(query: CallbackQuery, state: FSMContext):
 
 # --- Tariff Creation FSM ---
 @router.message(F.text == "📈 Создать тариф")
-async def handle_new_tariff(message: Message, state: FSMContext):
+async def handle_new_tariff(message: Message, state: FSMContext) -> None:
     """Starts the FSM for creating a new tariff by selecting a tenant."""
     tenants = await TenantRepository().all()
     if not tenants:
@@ -218,7 +218,7 @@ async def handle_new_tariff(message: Message, state: FSMContext):
 @router.callback_query(AdminActionCallback.filter(F.action == "stt"))
 async def handle_tariff_tenant_select(
     query: CallbackQuery, callback_data: AdminActionCallback, state: FSMContext
-):
+) -> None:
     """Handles tenant selection for tariff and shows their meters."""
     if not isinstance(query.message, Message):
         return
@@ -257,7 +257,7 @@ async def handle_tariff_tenant_select(
 )
 async def handle_tariff_meter_select(
     query: CallbackQuery, callback_data: AdminActionCallback, state: FSMContext
-):
+) -> None:
     """Handles meter selection and shows available tariff templates."""
     if not isinstance(query.message, Message):
         return
@@ -303,7 +303,7 @@ async def handle_tariff_meter_select(
 
 # --- Tariff: rate name entry (free text) ---
 @router.message(TariffManagement.enter_name)
-async def handle_tariff_rate_name(message: Message, state: FSMContext):
+async def handle_tariff_rate_name(message: Message, state: FSMContext) -> None:
     """Stores rate name then asks for numeric rate."""
     if not message.text:
         await message.answer("Название не может быть пустым. Попробуйте еще раз.")
@@ -315,7 +315,7 @@ async def handle_tariff_rate_name(message: Message, state: FSMContext):
 
 
 @router.message(TariffManagement.enter_rate)
-async def handle_tariff_rate(message: Message, state: FSMContext):
+async def handle_tariff_rate(message: Message, state: FSMContext) -> None:
     """Handles the tariff rate and asks for the start date."""
     if not message.text:
         return
@@ -335,7 +335,7 @@ async def handle_tariff_rate(message: Message, state: FSMContext):
 
 
 @router.message(TariffManagement.enter_start_date)
-async def handle_tariff_start_date(message: Message, state: FSMContext):
+async def handle_tariff_start_date(message: Message, state: FSMContext) -> None:
     """Handles the start date, asks for confirmation."""
     if not message.text:
         return
@@ -373,7 +373,7 @@ async def handle_tariff_start_date(message: Message, state: FSMContext):
 
 
 @router.callback_query(TariffManagement.confirm_creation, F.data == "confirm")
-async def handle_tariff_confirmation(query: CallbackQuery, state: FSMContext):
+async def handle_tariff_confirmation(query: CallbackQuery, state: FSMContext) -> None:
     """Handles confirmation, deactivates old tariff, and creates the new one."""
     if not isinstance(query.message, Message):
         return
@@ -414,7 +414,7 @@ async def handle_tariff_confirmation(query: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(TariffManagement.confirm_creation, F.data == "cancel")
-async def handle_tariff_cancellation(query: CallbackQuery, state: FSMContext):
+async def handle_tariff_cancellation(query: CallbackQuery, state: FSMContext) -> None:
     """Handles cancellation of tariff creation."""
     if not isinstance(query.message, Message):
         return
@@ -426,7 +426,7 @@ async def handle_tariff_cancellation(query: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(TariffManagement.manage_existing, F.data == "newtar")
-async def handle_new_tariff_action(query: CallbackQuery, state: FSMContext):
+async def handle_new_tariff_action(query: CallbackQuery, state: FSMContext) -> None:
     """Starts creation of a completely new tariff."""
     if not isinstance(query.message, Message):
         return
@@ -438,11 +438,9 @@ async def handle_new_tariff_action(query: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(TariffManagement.manage_existing, F.data.startswith("copytar:"))
-async def handle_copy_tariff(query: CallbackQuery, state: FSMContext):
+async def handle_copy_tariff(query: CallbackQuery, state: FSMContext) -> None:
     """Copies selected tariff and asks only for new start date."""
-    if not isinstance(query.message, Message):
-        return
-    if not query.data:
+    if not isinstance(query.message, Message) or not query.data:
         return
 
     tariff_id = query.data.split(":", 1)[1]
@@ -467,8 +465,9 @@ async def handle_copy_tariff(query: CallbackQuery, state: FSMContext):
 
 
 @router.message(F.text == "📟 Счётчики")
-async def handle_meters_list(message: Message, state: FSMContext):
-    """Shows tenants to choose whose meters to manage."""
+async def handle_meters_list(message: Message, state: FSMContext) -> None:
+    """Shows a list of tenants to choose from for viewing meters."""
+    await state.clear()
     tenants = await TenantRepository().all()
     if not tenants:
         await message.answer("Сначала добавьте хотя бы одного арендатора.")
@@ -489,10 +488,9 @@ async def handle_meters_list(message: Message, state: FSMContext):
 
 
 @router.callback_query(F.data.startswith("ml_tenant:"))
-async def handle_meter_list_for_tenant(query: CallbackQuery, state: FSMContext):
-    if not isinstance(query.message, Message):
-        return
-    if not query.data:
+async def handle_meter_list_for_tenant(query: CallbackQuery, state: FSMContext) -> None:
+    """Shows a list of meters for the selected tenant."""
+    if not isinstance(query.message, Message) or not query.data:
         return
 
     tenant_id = query.data.split(":", 1)[1]
@@ -531,10 +529,9 @@ async def handle_meter_list_for_tenant(query: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data.startswith("meter_del:"))
-async def handle_meter_delete(query: CallbackQuery):
-    if not isinstance(query.message, Message):
-        return
-    if not query.data:
+async def handle_meter_delete(query: CallbackQuery) -> None:
+    """Deletes a meter."""
+    if not isinstance(query.message, Message) or not query.data:
         return
 
     meter_id = query.data.split(":", 1)[1]
@@ -551,10 +548,9 @@ async def handle_meter_delete(query: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("meter_edit:"))
-async def handle_meter_edit(query: CallbackQuery, state: FSMContext):
-    if not isinstance(query.message, Message):
-        return
-    if not query.data:
+async def handle_meter_edit(query: CallbackQuery, state: FSMContext) -> None:
+    """Shows editing options for a specific meter."""
+    if not isinstance(query.message, Message) or not query.data:
         return
 
     meter_id = query.data.split(":", 1)[1]
@@ -580,11 +576,9 @@ async def handle_meter_edit(query: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data.startswith("quick_tariff:"))
-async def handle_quick_tariff(query: CallbackQuery, state: FSMContext):
-    """Jump from meter edit to tariff creation flow for the same meter."""
-    if not isinstance(query.message, Message):
-        return
-    if not query.data:
+async def handle_quick_tariff(query: CallbackQuery, state: FSMContext) -> None:
+    """Starts the tariff creation FSM with the meter pre-selected."""
+    if not isinstance(query.message, Message) or not query.data:
         return
 
     meter_id = query.data.split(":", 1)[1]

@@ -1,6 +1,6 @@
 PY?=python
 
-.PHONY: install test lint format dev
+.PHONY: install test lint format dev build up down restart logs
 
 install:
 	poetry install

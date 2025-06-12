@@ -4,6 +4,7 @@ import logging
 import tempfile
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, FSInputFile, Message
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.message(F.text == "📊 Сводный отчет")
-async def handle_summary_command(message: Message):
+async def handle_summary_command(message: Message) -> None:
     """Starts the summary report generation by showing recent months."""
     builder = get_period_keyboard("summary")
     await message.answer(
@@ -34,7 +35,7 @@ async def handle_summary_period(
     query: CallbackQuery,
     callback_data: SelectPeriodCallback,
     billing_service: BillingService,
-):
+) -> None:
     """Generates summary report for all tenants for the given period."""
     if not isinstance(query.message, Message):
         return
@@ -52,7 +53,7 @@ async def handle_summary_period(
         await query.message.edit_text("Арендаторы не найдены.")
         return
 
-    summary_data: list[dict] = []
+    summary_data: list[dict[str, Any]] = []
     text_rows: list[tuple[str, str]] = []
     grand_total = Decimal("0")
 

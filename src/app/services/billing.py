@@ -11,7 +11,7 @@ from uuid import UUID
 from dateutil.relativedelta import relativedelta
 
 from app.core import calculations
-from app.core.models import Invoice, Meter, Tariff
+from app.core.models import Adjustment, Invoice, Meter, Tariff
 from app.core.repositories.invoice import InvoiceRepository
 from app.core.repositories.reading import ReadingRepository
 from app.core.repositories.tariff import TariffRepository
@@ -170,7 +170,7 @@ class BillingService:
         invoice.amount += amount
         await invoice.save()
 
-    async def list_adjustments(self, invoice_id: UUID):
+    async def list_adjustments(self, invoice_id: UUID) -> list[Adjustment]:
         """Returns all adjustments for a given invoice."""
         invoice = await self._invoice_repo.get(pk=invoice_id)
         if not invoice:
@@ -180,7 +180,7 @@ class BillingService:
 
     @staticmethod
     def aggregate_costs_by_rate_type(
-        billing_results: dict[UUID, "MeterBillingResult"],
+        billing_results: dict[UUID, MeterBillingResult],
     ) -> dict[str, Decimal]:
         """Sums costs grouped by ``tariff.name``."""
         totals: dict[str, Decimal] = {}

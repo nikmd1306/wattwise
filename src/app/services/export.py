@@ -7,6 +7,7 @@ from uuid import UUID
 from collections import defaultdict
 from decimal import Decimal
 from datetime import date
+from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
@@ -19,7 +20,7 @@ from app.services.billing import MeterBillingResult
 class ExportService:
     """Handles exporting invoice data to files."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         template_dir = Path(__file__).parent.parent / "templates"
         self._env = Environment(loader=FileSystemLoader(template_dir))
 
@@ -101,7 +102,7 @@ class ExportService:
     async def generate_pdf_summary(
         self,
         period: date,
-        summary_data: list[dict],
+        summary_data: list[dict[str, Any]],
         grand_total: Decimal,
         output_path: Path | str,
     ) -> Path:

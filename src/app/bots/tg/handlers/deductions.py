@@ -21,7 +21,7 @@ router.message.middleware(AdminAccessMiddleware())
 router.callback_query.middleware(AdminAccessMiddleware())
 
 
-async def _get_main_view(message: Message | CallbackQuery, state: FSMContext):
+async def _get_main_view(message: Message | CallbackQuery, state: FSMContext) -> None:
     """Shows the main view with existing links and a create button."""
     await state.clear()
     await state.set_state(DeductionLinkManagement.start)
@@ -72,7 +72,7 @@ async def _get_main_view(message: Message | CallbackQuery, state: FSMContext):
 
 
 @router.message(F.text == "🔗 Связи для вычетов")
-async def handle_deductions_command(message: Message, state: FSMContext):
+async def handle_deductions_command(message: Message, state: FSMContext) -> None:
     """Entry point for deduction link management."""
     await _get_main_view(message, state)
 
@@ -82,7 +82,7 @@ async def handle_deductions_command(message: Message, state: FSMContext):
 )
 async def handle_delete_link(
     query: CallbackQuery, callback_data: DeductionLinkCallback, state: FSMContext
-):
+) -> None:
     """Deletes a deduction link."""
     if callback_data.link_id:
         await DeductionLink.filter(id=callback_data.link_id).delete()
@@ -93,7 +93,7 @@ async def handle_delete_link(
 @router.callback_query(
     DeductionLinkManagement.start, DeductionLinkCallback.filter(F.action == "create")
 )
-async def handle_create_start(query: CallbackQuery, state: FSMContext):
+async def handle_create_start(query: CallbackQuery, state: FSMContext) -> None:
     """Starts the creation of a new deduction link by selecting the parent tenant."""
     if not isinstance(query.message, Message):
         return
@@ -122,7 +122,7 @@ async def _select_meter(
     tenant_id: str,
     next_action: str,
     text: str,
-):
+) -> None:
     """Helper to show meters for a tenant."""
     if not isinstance(query.message, Message):
         return
@@ -151,7 +151,7 @@ async def _select_meter(
 )
 async def handle_parent_tenant_selected(
     query: CallbackQuery, callback_data: DeductionLinkCallback, state: FSMContext
-):
+) -> None:
     """Handles parent tenant selection and shows its meters."""
     if not callback_data.tenant_id:
         return
@@ -172,7 +172,7 @@ async def handle_parent_tenant_selected(
 )
 async def handle_parent_meter_selected(
     query: CallbackQuery, callback_data: DeductionLinkCallback, state: FSMContext
-):
+) -> None:
     """Handles parent meter selection and asks for child tenant."""
     if not isinstance(query.message, Message):
         return
@@ -205,7 +205,7 @@ async def handle_parent_meter_selected(
 )
 async def handle_child_tenant_selected(
     query: CallbackQuery, callback_data: DeductionLinkCallback, state: FSMContext
-):
+) -> None:
     """Handles child tenant selection and shows its meters."""
     if not callback_data.tenant_id:
         return
@@ -226,7 +226,7 @@ async def handle_child_tenant_selected(
 )
 async def handle_child_meter_selected(
     query: CallbackQuery, callback_data: DeductionLinkCallback, state: FSMContext
-):
+) -> None:
     """Handles child meter selection and asks for a description."""
     if not isinstance(query.message, Message):
         return
@@ -241,7 +241,7 @@ async def handle_child_meter_selected(
 
 
 @router.message(DeductionLinkManagement.enter_description)
-async def handle_description(message: Message, state: FSMContext):
+async def handle_description(message: Message, state: FSMContext) -> None:
     """Handles description and asks for confirmation."""
     if not message.text:
         await message.answer("Описание не может быть пустым.")
@@ -281,7 +281,7 @@ async def handle_description(message: Message, state: FSMContext):
 
 
 @router.callback_query(DeductionLinkManagement.confirm_creation, F.data == "confirm")
-async def handle_confirmation(query: CallbackQuery, state: FSMContext):
+async def handle_confirmation(query: CallbackQuery, state: FSMContext) -> None:
     """Creates the link and returns to the main view."""
     data = await state.get_data()
     await DeductionLink.create(
@@ -294,7 +294,7 @@ async def handle_confirmation(query: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(DeductionLinkManagement.confirm_creation, F.data == "cancel")
-async def handle_cancellation(query: CallbackQuery, state: FSMContext):
+async def handle_cancellation(query: CallbackQuery, state: FSMContext) -> None:
     """Cancels creation and returns to the main view."""
     await query.answer("Действие отменено.")
     await _get_main_view(query, state)
