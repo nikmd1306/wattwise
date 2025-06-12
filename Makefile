@@ -20,3 +20,19 @@ format:
 
 dev:
 	PYTHONPATH=src poetry run python -m app.bots.tg.bot
+
+# --- Docker Management ---
+build:
+	docker compose build
+
+up:
+	docker compose up -d
+
+down:
+	docker compose down
+
+restart:
+	docker compose down && docker compose up -d --build
+
+logs:
+	docker compose logs -f --tail=100
