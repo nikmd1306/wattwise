@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.core.models import Invoice, Meter, Reading, Tariff, Tenant
+from app.core.models import DeductionLink, Invoice, Meter, Reading, Tariff, Tenant
 from app.core.repositories.invoice import InvoiceRepository
 from app.core.repositories.reading import ReadingRepository
 from app.core.repositories.tariff import TariffRepository
@@ -55,40 +55,50 @@ async def test_generate_invoice_simple_case(billing_service: BillingService):
 
 
 @pytest.mark.asyncio
-async def test_generate_invoice_with_subtraction(billing_service: BillingService):
-    """Tests invoice generation with a subtractive sub-meter."""
+async def test_generate_invoice_with_manual_adjustment(billing_service: BillingService):
+    """
+    Tests invoice generation for a case with manual adjustment (deduction link).
+    """
     # --- Arrange ---
-    tenant = await Tenant.create(name="StaviLon")
-    parent_meter = await Meter.create(name="Main Building", tenant=tenant)
-    sub_meter = await Meter.create(
-        name="Bondarenko Warehouse", tenant=tenant, subtract_from=parent_meter
+    tenant_a = await Tenant.create(name="Landlord")
+    tenant_b = await Tenant.create(name="Sub-tenant")
+
+    parent_meter = await Meter.create(name="Main Building", tenant=tenant_a)
+    child_meter = await Meter.create(name="Sub-let Office", tenant=tenant_b)
+
+    # This link is for the UI logic, but we create it for test completeness
+    await DeductionLink.create(
+        parent_meter=parent_meter,
+        child_meter=child_meter,
+        description="Sub-let deduction",
     )
 
     # Parent Meter Data
     await Reading.create(meter=parent_meter, period=date(2024, 6, 1), value=2000)
-    await Reading.create(meter=parent_meter, period=date(2024, 7, 1), value=2100)
+    await Reading.create(
+        meter=parent_meter,
+        period=date(2024, 7, 1),
+        value=2155,
+        manual_adjustment=Decimal("100"),
+    )
     await Tariff.create(
         meter=parent_meter, rate=Decimal("40.0"), period_start=date(2024, 1, 1)
     )
 
-    # Sub-Meter Data
-    await Reading.create(meter=sub_meter, period=date(2024, 6, 1), value=4000)
-    await Reading.create(meter=sub_meter, period=date(2024, 7, 1), value=4100)
+    # Child Meter Data
+    await Reading.create(meter=child_meter, period=date(2024, 6, 1), value=4000)
+    await Reading.create(meter=child_meter, period=date(2024, 7, 1), value=4100)
     await Tariff.create(
-        meter=sub_meter, rate=Decimal("10.5"), period_start=date(2024, 1, 1)
+        meter=child_meter, rate=Decimal("10.5"), period_start=date(2024, 1, 1)
     )
 
-    # Expected:
-    # Parent Cost: (2100 - 2000) * 40.0 = 4000
-    # Sub Cost: (4100 - 4000) * 10.5 = 1050
-    # Subtraction: (4100 - 4000) * 40.0 (Parent's Tariff) = 4000
-    # Total = 4000 + 1050 - 4000 = 1050
-    expected_amount = Decimal("1050.00")
-
     # --- Act ---
-    invoice, _ = await billing_service.generate_invoice(tenant.id, date(2024, 7, 1))
+    invoice_a, _ = await billing_service.generate_invoice(tenant_a.id, date(2024, 7, 1))
+    invoice_b, _ = await billing_service.generate_invoice(tenant_b.id, date(2024, 7, 1))
 
     # --- Assert ---
-    assert invoice.amount == expected_amount
-    db_invoice = await Invoice.get(id=invoice.id)
-    assert db_invoice.amount == expected_amount
+    # Parent consumption: (2155 - 2000) - 100 = 55. Cost: 55 * 40.0 = 2200
+    assert invoice_a.amount == Decimal("2200.00")
+
+    # Child consumption: 4100 - 4000 = 100. Cost: 100 * 10.5 = 1050
+    assert invoice_b.amount == Decimal("1050.00")

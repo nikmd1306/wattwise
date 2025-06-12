@@ -19,7 +19,7 @@ class ResourceType(str, enum.Enum):
 class BaseModel(models.Model):
     """Abstract base model with common fields."""
 
-    id = fields.UUIDField(pk=True, default=uuid.uuid4)
+    id = fields.UUIDField(primary_key=True, default=uuid.uuid4)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 

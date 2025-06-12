@@ -8,17 +8,19 @@ from app.core.calculations import calculate_consumption, calculate_cost
 
 
 @pytest.mark.parametrize(
-    "current, previous, expected",
+    "current, previous, adjustment, expected",
     [
-        (Decimal("100"), Decimal("50"), Decimal("50")),
-        (Decimal("50"), Decimal("100"), Decimal("0")),  # Meter reset case
-        (Decimal("100"), Decimal("100"), Decimal("0")),
-        (Decimal("150.55"), Decimal("120.25"), Decimal("30.30")),
+        (Decimal("100"), Decimal("50"), Decimal("0"), Decimal("50")),
+        (Decimal("100"), Decimal("50"), Decimal("10"), Decimal("40")),
+        (Decimal("50"), Decimal("100"), Decimal("10"), Decimal("0")),
+        (Decimal("100"), Decimal("100"), Decimal("0"), Decimal("0")),
+        (Decimal("150.55"), Decimal("120.25"), Decimal("10.10"), Decimal("20.20")),
+        (Decimal("100"), Decimal("50"), Decimal("60"), Decimal("-10")),
     ],
 )
-def test_calculate_consumption(current, previous, expected):
+def test_calculate_consumption(current, previous, adjustment, expected):
     """Tests the calculate_consumption function with various scenarios."""
-    assert calculate_consumption(current, previous) == expected
+    assert calculate_consumption(current, previous, adjustment) == expected
 
 
 @pytest.mark.parametrize(
