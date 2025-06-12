@@ -150,6 +150,7 @@ async def handle_meter_yes_sub(query: CallbackQuery, state: FSMContext):
     meters = await MeterRepository().get_for_tenant(UUID(tenant_id))
     if not meters:
         await query.message.edit_text("У арендатора пока нет других счётчиков.")
+        await state.clear()
         return
     builder = InlineKeyboardBuilder()
     for meter in meters:

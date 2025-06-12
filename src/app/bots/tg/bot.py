@@ -10,7 +10,7 @@ from tortoise import Tortoise
 
 from app.config import settings
 from app.core.db import TORTOISE_ORM
-from app.bots.tg.handlers import readings, invoices, admin, summary
+from app.bots.tg.handlers import readings, invoices, admin, summary, onboarding
 from app.services.billing import BillingService
 from app.core.repositories.tenant import TenantRepository
 from app.core.repositories.reading import ReadingRepository
@@ -48,6 +48,7 @@ async def main():
 
     # Register routers
     dp.include_router(common.router)
+    dp.include_router(onboarding.router)
     dp.include_router(readings.router)
     dp.include_router(invoices.router)
     dp.include_router(admin.router)

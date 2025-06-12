@@ -25,3 +25,10 @@ class SelectMeterCallback(CallbackData, prefix="mtr"):
     """Callback data for selecting a meter."""
 
     id: str
+
+
+class SelectPeriodCallback(CallbackData, prefix="period"):
+    """Callback data for selecting a period for invoices or summaries."""
+
+    action: str  # e.g., 'invoice', 'summary'
+    period: str  # YYYY-MM

@@ -239,27 +239,36 @@ class BillingService:
         issues: list[str] = []
         prev_period = period_date - relativedelta(months=1)
 
+        # Using Russian month names
+        current_month_str = period_date.strftime("%B %Y").capitalize()
+        prev_month_str = prev_period.strftime("%B %Y").capitalize()
+
         for meter in tenant.meters:
+            meter_issues: list[str] = []
             # Check readings
             curr_reading = await self._reading_repo.get_for_period(
                 meter.id, period_date, period_date
             )
             if not curr_reading:
-                issues.append(
-                    f"Нет показания {period_date:%Y-%m} для счётчика «{meter.name}»."
-                )
+                meter_issues.append(f"  • нет показания за <b>{current_month_str}</b>")
 
             prev_reading = await self._reading_repo.get_for_period(
                 meter.id, prev_period, prev_period
             )
             if not prev_reading:
-                issues.append(f"Нет показания {prev_period:%Y-%m} для «{meter.name}».")
+                meter_issues.append(
+                    f"  • нет показания за <b>{prev_month_str}</b> (нужно для расчёта)"
+                )
 
             # Check tariff
             tariff = await self._tariff_repo.find_for_date(meter.id, period_date)
             if not tariff:
-                issues.append(
-                    f"Нет активного тарифа на {period_date:%Y-%m} для «{meter.name}»."
+                meter_issues.append(
+                    f"  • нет активного тарифа на <b>{current_month_str}</b>"
                 )
+
+            if meter_issues:
+                issues.append(f"<u>Счётчик «{meter.name}»:</u>")
+                issues.extend(meter_issues)
 
         return issues

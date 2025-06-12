@@ -38,21 +38,9 @@ class MeterManagement(StatesGroup):
     select_parent_meter = State()
 
 
-class InvoiceGeneration(StatesGroup):
-    """States for invoice generation."""
-
-    enter_period = State()
-
-
 class Onboarding(StatesGroup):
     """States for the onboarding carousel."""
 
     page1 = State()
     page2 = State()
     page3 = State()
-
-
-class SummaryGeneration(StatesGroup):
-    """States for summary report generation."""
-
-    enter_period = State()

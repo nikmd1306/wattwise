@@ -1,27 +1,13 @@
 """Common command handlers."""
 
 from aiogram import F, Router
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command
 from aiogram.types import Message
-from aiogram.fsm.context import FSMContext
 
 from app.bots.tg.keyboards.reply import get_admin_panel, get_main_menu
 from app.config import settings
-from app.bots.tg.states import Onboarding
 
 router = Router(name=__name__)
-
-
-@router.message(CommandStart())
-async def handle_start(message: Message, state: FSMContext):
-    """Handler for the /start command."""
-    if not message.from_user:
-        return
-    # Launch onboarding carousel
-    await state.set_state(Onboarding.page1)
-    from app.bots.tg.handlers.onboarding import _send_page  # noqa: WPS433
-
-    await _send_page(message, 1)
 
 
 @router.message(Command("help"))

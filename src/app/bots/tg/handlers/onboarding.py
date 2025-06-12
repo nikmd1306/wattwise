@@ -4,6 +4,7 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.filters import StateFilter, CommandStart
 
 from app.bots.tg.keyboards.reply import get_main_menu
 from app.bots.tg.states import Onboarding
@@ -12,8 +13,8 @@ from app.config import settings
 router = Router(name=__name__)
 
 
-async def _send_page(message: Message, page: int):
-    """Utility: send onboarding page with navigation buttons."""
+def _get_onboarding_content(page: int) -> tuple[str, InlineKeyboardBuilder]:
+    """Prepares content for an onboarding page."""
     texts = {
         1: (
             "👋 <b>Добро пожаловать в WattWise!</b>\n\n"
@@ -37,37 +38,44 @@ async def _send_page(message: Message, page: int):
     else:
         builder.add(InlineKeyboardButton(text="Погнали! 🚀", callback_data="onb_done"))
 
-    await message.answer(texts[page], reply_markup=builder.as_markup())
+    return texts[page], builder
 
 
-@router.message(F.text == "/onboarding")
-async def start_onboarding_manual(message: Message, state: FSMContext):
-    """Manual command to start onboarding (for tests)."""
+@router.message(CommandStart())
+async def handle_start(message: Message, state: FSMContext):
+    """Handler for the /start command."""
+    if not message.from_user:
+        return
+
     await state.set_state(Onboarding.page1)
-    await _send_page(message, 1)
+    text, builder = _get_onboarding_content(1)
+    await message.answer(text, reply_markup=builder.as_markup())
 
 
-@router.callback_query(F.data.startswith("onb_next:"))
+@router.callback_query(
+    StateFilter(Onboarding.page1, Onboarding.page2), F.data.startswith("onb_next:")
+)
 async def onboarding_next(query: CallbackQuery, state: FSMContext):
-    if not isinstance(query.message, Message):
+    if not isinstance(query.message, Message) or not query.data:
         return
-    if not query.data:
-        return
+
     page = int(query.data.split(":")[1]) + 1
     if page == 2:
         await state.set_state(Onboarding.page2)
     else:
         await state.set_state(Onboarding.page3)
-    await _send_page(query.message, page)
+
+    text, builder = _get_onboarding_content(page)
+    await query.message.edit_text(text, reply_markup=builder.as_markup())
 
 
-@router.callback_query(F.data == "onb_done")
+@router.callback_query(Onboarding.page3, F.data == "onb_done")
 async def onboarding_done(query: CallbackQuery, state: FSMContext):
-    if not isinstance(query.message, Message):
+    if not isinstance(query.message, Message) or not query.from_user:
         return
+
     await state.clear()
-    # Show main menu
-    if not query.from_user:
-        return
+    await query.message.edit_text("✅ Настройка завершена!")
+
     is_admin = query.from_user.id in settings.ADMIN_IDS
     await query.message.answer("Главное меню:", reply_markup=get_main_menu(is_admin))
